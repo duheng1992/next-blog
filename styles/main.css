@@ -63,3 +63,36 @@ img.next-image {
 .nav-line .nav-link {
   color: #69778c;
 }
+
+.search-container input {
+  height: 40px;
+  width: 400px;
+  padding: 0 12px;
+  transition: width .2s;
+  border: 1px solid #eee;
+}
+
+.search-container.w-full input {
+  width: 100%;
+}
+
+#autocomplete-listbox {
+  z-index: 999;
+  width: 100%;
+  background-color: #efefef;
+}
+
+#autocomplete-listbox > div {
+  height: 40px;
+  line-height: 36px;
+  padding: 2px 12px;
+}
+
+#autocomplete-listbox > div[role="option"] {
+  cursor: pointer;
+}
+
+#autocomplete-listbox > div[role="option"]:hover {
+  background-color: #69778c;
+  color: white;
+}

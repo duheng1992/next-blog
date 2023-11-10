@@ -4,11 +4,7 @@ const RSS = require('rss')
 const matter = require('gray-matter')
 
 async function generate() {
-  const feed = new RSS({
-    title: 'Your Name',
-    site_url: 'https://yoursite.com',
-    feed_url: 'https://yoursite.com/feed.xml'
-  })
+  const useRss = process.argv.slice(2);
 
   const posts = await fs.readdir(path.join(__dirname, '..', 'pages', 'posts'))
   const allPosts = []
@@ -33,10 +29,19 @@ async function generate() {
   )
 
   allPosts.sort((a, b) => new Date(b.date) - new Date(a.date))
-  allPosts.forEach((post) => {
+  
+  if (useRss && useRss.length) {
+    const feed = new RSS({
+      title: 'Your Name',
+      site_url: 'https://yoursite.com',
+      feed_url: 'https://yoursite.com/feed.xml'
+    })
+    allPosts.forEach((post) => {
       feed.item(post)
-  })
-  await fs.writeFile('./public/feed.xml', feed.xml({ indent: true }))
+    });
+    await fs.writeFile('./public/feed.xml', feed.xml({ indent: true }))
+  }
+  await fs.writeFile('./public/search.json', JSON.stringify(allPosts))
 }
 
 generate()
