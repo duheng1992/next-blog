@@ -82,6 +82,10 @@ img.next-image {
   background-color: #efefef;
 }
 
+html.dark #autocomplete-listbox {
+  background-color: #b0bacb;
+}
+
 #autocomplete-listbox > div {
   height: 40px;
   line-height: 36px;
