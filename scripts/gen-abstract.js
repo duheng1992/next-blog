@@ -32,9 +32,9 @@ async function generate() {
   
   if (useRss && useRss.length) {
     const feed = new RSS({
-      title: 'Your Name',
-      site_url: 'https://yoursite.com',
-      feed_url: 'https://yoursite.com/feed.xml'
+      title: '小肚肚肚肚肚哦',
+      site_url: 'https://next-blog-pro-gray.vercel.app/',
+      feed_url: 'https://next-blog-pro-gray.vercel.app/feed.xml'
     })
     allPosts.forEach((post) => {
       feed.item(post)

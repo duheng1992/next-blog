@@ -2,7 +2,7 @@
 title: 小肚带您 Tailwind CSS 快速入门
 date: 2023/11/11
 description: 小肚教你快速搭建 Tailwind CSS 开发环境
-tag: CSS development
+tag: web development
 author: 小肚肚肚肚肚哦
 ---
 
