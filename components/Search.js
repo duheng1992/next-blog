@@ -18,7 +18,7 @@ const listbox = [
       if (!query) {
         return searchPosts
       }
-      return searchPosts.filter(item => item.title.indexOf(query) > -1 || item.description.indexOf(query) > -1)
+      return searchPosts.filter(item => item.title?.toLowerCase().indexOf(query) > -1 || item.description?.toLowerCase().indexOf(query) > -1)
     },
     searchType: 'contains'
   }
