@@ -1,8 +1,8 @@
 ---
 title: 手把手搭建基于React的前端UI库 （三）-- 基础组件Icon和Button
 date: 2022/3/19
-description: 前端 vs 后端
-tag: web development
+description: react UI库开发
+tag: React UI库
 author: 小肚肚肚肚肚哦
 ---
 
