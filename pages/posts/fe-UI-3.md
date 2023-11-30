@@ -1,0 +1,494 @@
+---
+title: 手把手搭建基于React的前端UI库 （三）-- 基础组件Icon和Button
+date: 2022/3/19
+description: 前端 vs 后端
+tag: web development
+author: 小肚肚肚肚肚哦
+---
+
+## 前言
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;承接上一篇[手把手搭建基于React的前端UI库（二）-- 主题配置](https://juejin.cn/post/7076652936331280421/)。在主题配置之后，我们着手写一些基础组件以及其周边的配置工具。（本期用到的styleWrap的定义可查看上期）
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;本文的代码展示的是主要的核心代码，全部代码见仓库：[Gitee仓库](https://gitee.com/dh1992/dux-ui-react/)
+
+
+## Icon
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;图标的设计是个技术活，需要设计出自己专属的风格，就像上一期一开始讲的那样，Style风格设计是三要素之首。基础组件设计，比如按钮是扁平还是立体，输入框是方角还是圆角，加不加阴影等这些，受项目经理、产品和交互的影响会多一点，但是大体来说，应与公司同类产品保持一致，至于如何设计，那就是另外的课题了，不在本文的讨论之列。
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;本文中的Icon图标使用字体库来完成，通过CSS无侵入式的在一个元素上加入`before`或者`after`伪类来实现图标显示，这里不是浏览器的字体，也不是客户电脑里安装的字体，也不是图片或其他方式，而且是以文字的方式显示，这样做相对比较简洁，方便修改，更重要的是利于SEO优化。浏览器兼容性比较好的字体库有`WOFF`、`WOFF2`等。字体库兼容性见[官方解释](https://developer.mozilla.org/zh-CN/docs/Web/CSS/@font-face)。字体库有专门的自定义生成工具，例如[fonteditor](http://www.fonteditor.com/)，可以试用30天；至于字体库，你也可以使用第三方开源的字体库，例如[Font Awesome](https://fontawesome.dashgame.com/)。这里作者就使用Font Awesome的woff字体库，我们打开图形创建工具fonteditor来查看这个文件：
+
+![image.png](/images/2022-3-19/2022-3-19-6.png)
+
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;可以看到，每一个Icon都有对应的`Code-points`，这样我们就能通过CSS来配置字体图标了：
+
+```css
+// 上图中玻璃杯
+.glass:before {
+    content: '\F000';
+}
+```
+设计思路有了，接下来就开始动工！
+
+### Icon.tsx
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;在`src/components`文件夹下，新建文件夹`Icon`，在该文件夹下新建`Icon.tsx`：
+
+```tsx
+...
+// 定义接收参数
+export interface IconProps {
+    /** 图标类型 */
+    type: string;
+    /** 是否旋转 */
+    spin?: boolean;
+    /** 自定义 icon 类名前缀，使用自定义图标库时使用，默认为 icon\_\_ */
+    prefix?: string;
+}
+
+// 图标控件
+const Icon = ({
+    type,
+    spin,
+    prefix,
+    className,
+    ...rest
+} => {
+    const configContext = useContext(ConfigContext);
+    const finalPrefix = useMemo(() => prefix || configContext.iconDefaultPrefix || 'icon__', [
+        configContext.iconDefaultPrefix,
+        prefix
+    ]);
+    return (
+        <IconWrap
+            className={classnames(prefixCls, `${finalPrefix}${type}`, spin && `${prefixCls}-spin`, className)}
+            spin={spin}
+            {...rest}
+        />
+    );
+};
+
+export default React.memo(Icon);
+
+```
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;这里可以看到，我在全局`configContext`定义了默认的图标类名前缀，默认为`icon__`，你也可以自定义，只要和CSS样式对应即可。最后返回的是一个`IconWrap`组件，我们在`Icon`文件夹下新建`style`文件夹来放置样式包裹类，`style`下设置`font`文件夹来安置我们下载的WOFF文件，并在`style`同目录下新建`icon.css`和`index.ts`：
+
+src/components/Icon/style/icon.css：
+
+```css
+/* 自定义专属的字体类型 */
+@font-face {
+    font-family: duiicon;
+    /* src: url(./fonts/duiicon.eot?v=1552285261926); */
+    src: url(./fonts/fontawesome-webfont.woff) format('woff');
+    font-weight: 400;
+    font-style: normal;
+}
+
+...
+/* 设置字体对应的类 */
+[class*=' icon__']:before,
+[class^='icon__']:before {
+    display: inline-block;
+}
+.icon__glass:before {
+    content: '\F000';
+}
+...
+```
+
+src/components/Icon/style/index.ts:
+
+```ts
+import styled from '@emotion/styled';
+import { css } from '@emotion/core';
+
+// spinMixin是公共的旋转样式，详见全部代码
+const iconSpinMixin = css`
+    ${spinMixin};
+    line-height: normal;
+`;
+
+export const IconWrap = styleWrap<{ spin?: boolean }>({})(
+    styled('i')(props => {
+        const { spin } = props;
+
+        return css`
+            vertical-align: baseline;
+            &&& {
+                ${spin && iconSpinMixin};
+            }
+        `;
+    })
+);
+```
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;从代码中看到，虽然这里面没有用到主题样式的变量，但为了风格统一，这里用`styleWrap`包裹一下，不给输入参数即可，其返回的仍然是一个回调函数，接受一个函数式组件作为参数，这里传递一个i标签：`styled('i')`，参数`props`是组件`IconWrap`接受的参数，如果有spin旋转，那就加上旋转的样式。
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;关于前缀的拼接，我这里说一下：
+
+```js
+classnames(prefixCls, `${finalPrefix}${type}`, spin && `${prefixCls}-spin`, className)
+```
+第一段是公共样式，这里为`dux-ui-icon`，可以理解为来自组件库的标识，也方便用户在使用时批量添加样式；第二段就是我们代码中拼接的`icon__glass`等，用于实际图标显示；第三段是旋转标识；第四段提供了用户自定义class。
+
+现在，代码目录结构如下：
+
+![image.png](/images/2022-3-19/2022-3-19-7.png)
+
+当然别忘了在`src/index`导出：
+
+```ts
+export { default as Icon } from './components/Icon';
+```
+
+### Icon demo
+
+我们在同目录下的`index.md`中写上demo用例：
+
+```tsx
+import React from 'react';
+// dumi-dux-ui要与你package.json中的name一致
+import { Icon } from 'dumi-dux-ui';
+import Copy from 'copy-to-clipboard';
+
+// demo start
+const layout = {
+    style: {
+        marginRight: 10
+    }
+};
+
+const Icons = [
+    'glass',
+];
+const TypeDemo = () => (
+    <div style={{ display: "flex" }}>
+        {Icons.map(item => (
+            <div key={item} style={{ width: '50px', height: '50px', cursor: 'pointer' }} onClick={() => Copy(item)}>
+                <Icon type={item} {...layout} />
+            </div>
+        ))}
+    </div>
+);
+```
+修改`.umirc.ts`：
+
+```ts
+...
+menus: {
+    // 需要自定义侧边菜单的路径，没有配置的路径还是会使用自动生成的配置
+    '/components': [
+      {
+        title: '组件',
+        path: '/components',
+        children: [
+          // 菜单子项（可选）
+          'components/Icon/index.md',
+        ],
+      },
+    ],
+  },
+```
+
+然后在根目录下执行：`npm run docs`，打开浏览器，进入localhost:8000/components/icon即可看到：
+
+![image.png](/images/2022-3-19/2022-3-19-8.png)
+
+我们的玻璃杯图标加载出来了！F12查看元素，确实是我们想要的加载方式：
+
+![image.png](/images/2022-3-19/2022-3-19-9.png)
+
+
+> 关于 @emotion中的`styled`和`css`方法，可以避免使用外挂css文件，同时组件传递参数更加方便，当然也可以完全不用styled，如下面代码所示，其效果是等价的。详细使用可以查看[emotion官网](http://emotion.sh/docs)
+
+
+```tsx
+function Content(props: any) {
+    // props的属性需要特殊处理，可传递className属性，通过外挂css实现相同的样式
+    ...
+    return <i {...props}></i>
+}
+
+export const IconWrap = styleWrap<{ spin?: boolean }>({})(Content);
+```
+
+<hr>
+
+## Button
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;按钮一般会分类别，不同的类别有不同的颜色，我们分为实心，边框空心和禁用三种模式。下面列一个表格说明所有的button样式：
+
+
+| 类别名称 | 种类名集合 |
+| --- | --- |
+| StyleTypes 种类 | ['primary', 'warning', 'success', 'error', 'border', 'border-gray'] |
+| Sizes 大小 | ['sm', 'md', 'lg'] |
+| Shapes 形状 | ['circle', 'square'] |
+| Shadowed 阴影 | ['true', 'false'] |
+| Loading 加载 | ['true', 'false'] |
+| Disabled 禁用 | ['true', 'false'] |
+| Block 块级显示 | ['true', 'false'] |
+
+我们根据罗列的类型，开始搭建组件！
+
+### 搭建基础
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;我们在`src/components`文件夹下新建文件夹`Button`，在该目录下新建文件`index.tsx`：
+
+
+```tsx
+// 定义接受参数，为表格中罗列属性
+export interface ButtonProps {
+  /** 按钮类型 */
+  styleType?: 'primary' | 'warning' | 'success' | 'error' | 'border' | 'border-gray';
+  /** 按钮尺寸 */
+  size?: 'sm' | 'md' | 'lg';
+  /** 形状 */
+  shape?: 'circle' | 'square';
+  /** 阴影 */
+  shadowed?: boolean;
+  /** 主题 */
+  // theme?: 'dark';
+  /** 是否加载中 */
+  loading?: boolean;
+  /** 图标 */
+  icon?: string | ReactNode;
+  /** 设置原生的 button 上 type 属性 */
+  type?: string;
+  /** 展示设置为块元素 */
+  block?: boolean;
+}
+```
+同样的，我们使用一个样式类包裹一下原生的button（还是在这个文件）：
+
+```tsx
+...
+render() {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { loading, icon, children, ...rest } = this.props;
+
+    return (
+      <StyleButton loading={loading} {...rest}>
+        // renderIcon为挂载按钮内图标的函数
+        {this.renderIcon()}
+        {children}
+      </StyleButton>
+    );
+  }
+```
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;接下来去创建`StyleButton`，与Icon创建一样地，我们在`src/components/Button`文件夹下新建`style`文件夹，在该文件夹下新建`index.tsx`，核心代码在这里：
+
+```tsx
+...
+const Button = ({
+  loading,
+  styleType,
+  disabled,
+  onClick,
+  block,
+  shadowed,
+  ...rest
+}) => (
+  <button
+    disabled={disabled}
+    onClick={!disabled ? onClick : undefined}
+    {...rest}
+  />
+);
+
+export const StyleButton = styleWrap<SButtonProps, HTMLButtonElement>({
+  className: classNameMixin,
+})(styled(Button)(buttonStyleMixin));
+
+```
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;定义一个叫Button的函数式组件，其返回的就是一个原生的button，所以rest参数里你可以传递原生的属性，最后用styleWrap包裹后导出。与Icon不同的是，Button的样式更多，而且还要适配主题。所以这里多了一个类名声明`classNameMixin`和一个样式函数`buttonStyleMixin`.
+
+classNameMixin：
+```tsx
+// classNameMixin负责添加各种类名，用于唯一识别和开发者进行定制
+const classNameMixin = ({
+  size,
+  styleType,
+  shape,
+  loading,
+  disabled,
+  checked,
+}) =>
+  classnames(
+    prefixCls,
+    `${prefixCls}-size-${size}`,
+    `${prefixCls}-styletype-${styleType}`,
+    shape && `${prefixCls}-${shape}`,
+    loading && `${prefixCls}-loading`,
+    disabled && `${prefixCls}-disabled`,
+    checked && `${prefixCls}-checked`,
+  );
+```
+
+buttonStyleMixin是一个总开关，用于添加各种样式：
+
+```tsx
+// buttonStyleMixin
+const buttonStyleMixin = (props) => {
+  const { theme, loading, shape, checked, block } = props;
+  const { designTokens: DT } = theme;
+  return css`
+    margin: 0;
+    box-sizing: border-box;
+    border-radius: ${DT.T_CORNER_LG};
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    outline: none;
+    font-size: ${DT.T_TYPO_FONT_SIZE_1};
+    white-space: nowrap;
+    ${inlineBlockWithVerticalMixin};  // 块级
+
+    ${sizeMixin(props)};  // 大小
+    ${styleTypeMixin(props)};  // styleType
+    ${shape && shapeMixin(props)}; // 形状
+    ${loading && loadingMixin(props)};  // 加载中
+    ${block &&
+    css`
+      width: 100%;
+    `};
+  `;
+};
+```
+接下来分别记录上述各个样式变量：
+
+sizeMixin：
+
+```tsx
+// 通过getHeightBySize拿到主题配置文件中的各个大小
+...
+return css`
+    height: ${getHeightBySize(DT, size)};
+    line-height: ${getHeightBySize(DT, size)};
+    padding: 0 ${getPaddingBySize(DT, size)};
+`;
+...
+```
+
+shapeMixin：
+
+```tsx
+...
+// 目前支持圆形和方形
+switch (shape) {
+    case 'circle':
+      return css`
+        border-radius: 50% !important;
+        padding: 0;
+        overflow: hidden;
+        width: ${getHeightBySize(DT, size)};
+      `;
+    case 'square':
+      return css`
+        padding: 0;
+        overflow: hidden;
+        width: ${getHeightBySize(DT, size)};
+      `;
+    default:
+      return css``;
+}
+```
+
+loadingMixin的设置也一样，使得鼠标不可点击，暗灰色显示即可。<br>
+
+styleTypeMixin用来通过styleType的不同，对应的设置不同的主题配色， 以primary为例：
+
+```tsx
+const {
+  // 接受ThemeProvider传递的theme参数
+  theme: { designTokens: DT },
+  styleType,
+  disabled,
+  size,
+  shadowed,
+} = props;
+
+...
+primary: {
+  background: DT.T_BUTTON_PRIMARY_COLOR_BG_DEFAULT,
+  ':hover,:active': {
+    background: DT.T_BUTTON_PRIMARY_COLOR_BG_HOVER,
+    boxShadow: shadowed ? DT.T_SHADOW_BUTTON_PRIMARY_HOVER : 'none',
+  },
+  color: DT.T_BUTTON_PRIMARY_COLOR_TEXT_DEFAULT,
+  fill: DT.T_BUTTON_PRIMARY_COLOR_TEXT_DEFAULT,
+  border: 'none',
+  boxShadow: shadowed ? DT.T_SHADOW_BUTTON_PRIMARY : 'none',
+  transition: `${transitionProperty} ${transitionFlat}`,
+  ':link,:visited': {
+    color: DT.T_BUTTON_PRIMARY_COLOR_TEXT_DEFAULT,
+  },
+},
+...
+```
+可以看到，当`styleType='primary'时`，设置了其背景色、文字颜色、填充色、渐变、过渡、激活时的样式以及被访问后的样式等。
+
+如此，一个简单的Button组件封装装好了，我们只是对样式进行了改动，其本质还是返回了一个原生按钮，原来的事件不影响使用。
+
+### Button demo
+
+我们写个demo测试一下。在`src/components/Button`下新建`index.md`：
+```tsx
+import React from 'react';
+
+import { Button } from 'dumi-dux-ui';
+
+// demo start
+const { StyleTypes } = Button;
+
+const ColorDemo = () => {
+  return (
+    <div>
+      {StyleTypes.map((type) => (
+        <Button styleType={type} key={type} onClick={() => console.log('clicked')}>
+          Button
+        </Button>
+      ))}
+    </div>
+  );
+};
+// demo end
+
+export default ColorDemo;
+```
+在`.umirc.ts`中加入：
+
+```js
+...
+menus: {
+    // 需要自定义侧边菜单的路径，没有配置的路径还是会使用自动生成的配置
+    '/components': [
+      {
+        title: '组件',
+        path: '/components',
+        children: [
+          // 菜单子项（可选）
+          'components/Icon/index.md',
+          'components/Button/index.md',
+        ],
+      },
+    ],
+  },
+```
+
+根目录下执行`npm run docs`， 不出意外的话，在localhost:8000/components/button下可以看到：
+
+![image.png](/images/2022-3-19/2022-3-19-10.png)
+F12测试点击事件：
+
+![image.png](/images/2022-3-19/2022-3-19-11.png)
+
+至此，基础组件Icon和Button的记录就到此结束了。下一期会记录布局组件的搭建，敬请期待~
+
+
+<hr>
+
+参考：<br>
+[antd样式设计](https://ant.design/docs/spec/values-cn) <br>
+[Material UI设计](https://mui.com/zh/components/buttons/) <br>
