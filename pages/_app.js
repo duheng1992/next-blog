@@ -8,7 +8,7 @@ import '../styles/main.css'
 
 export default function Nextra({ Component, pageProps }) {
 
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState();
 
   const changeTheme = (isDark) => {
     const html = document.querySelector('html');
@@ -20,11 +20,25 @@ export default function Nextra({ Component, pageProps }) {
     }
   }
 
+  const handleThemeChange = (e) => {
+    const isDark = e.matches;
+    setTheme(isDark ? 'dark' : 'light');
+    changeTheme(isDark);
+  }
+
   useEffect(() => {
+    let mediaQueryListDark;
     if (window) {
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setTheme(isDark ? 'dark' : 'light');
-      changeTheme(isDark);
+      mediaQueryListDark = window.matchMedia('(prefers-color-scheme: dark)');
+      mediaQueryListDark.addListener(handleThemeChange);
+      // 初始化先设置一次
+      handleThemeChange(mediaQueryListDark);
+    }
+
+    return () => {
+      if (mediaQueryListDark) {
+        mediaQueryListDark.removeListener(handleThemeChange);
+      }
     }
   }, []);
 
@@ -46,27 +60,29 @@ export default function Nextra({ Component, pageProps }) {
         />
       </Head>
 
-      <header style={{ float: 'right', marginTop: '8px' }}>
-        <DarkModeToggle
-          mode={theme}
-          dark="dark"
-          light="light"
-          size="sm"
-          inactiveTrackColor="#e2e8f0"
-          inactiveTrackColorOnHover="#f8fafc"
-          inactiveTrackColorOnActive="#cbd5e1"
-          activeTrackColor="#334155"
-          activeTrackColorOnHover="#1e293b"
-          activeTrackColorOnActive="#0f172a"
-          inactiveThumbColor="#1e293b"
-          activeThumbColor="#e2e8f0"
-          ariaLabel="Toggle color scheme"
-          onChange={(mode) => {
-            setTheme(mode);
-            changeTheme(mode === 'dark');
-          }}
-        />
-      </header>
+      {theme ? (
+        <header style={{ float: 'right', marginTop: '8px' }}>
+          <DarkModeToggle
+            mode={theme}
+            dark="dark"
+            light="light"
+            size="sm"
+            inactiveTrackColor="#e2e8f0"
+            inactiveTrackColorOnHover="#f8fafc"
+            inactiveTrackColorOnActive="#cbd5e1"
+            activeTrackColor="#334155"
+            activeTrackColorOnHover="#1e293b"
+            activeTrackColorOnActive="#0f172a"
+            inactiveThumbColor="#1e293b"
+            activeThumbColor="#e2e8f0"
+            ariaLabel="Toggle color scheme"
+            onChange={(mode) => {
+              setTheme(mode);
+              changeTheme(mode === 'dark');
+            }}
+          />
+        </header>
+      ) : null}
 
       <Component {...pageProps} />
     </>
