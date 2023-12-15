@@ -18,7 +18,7 @@ export default {
       `}</style>
     </small>
   ),
-  readMore: 'Read More →',
+  readMore: '大官人，进来看看呀~~ →',
   postFooter: null,
   darkMode: false,
   navs: [
