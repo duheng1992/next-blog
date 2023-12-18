@@ -3,7 +3,7 @@ import { Html, Head, Main, NextScript } from 'next/document'
 export default function Document() {
   const meta = {
     title: '小肚肚肚肚肚哦',
-    description: '小肚肚肚肚肚哦的技术文章',
+    description: '小肚肚肚肚肚哦的个人文章',
     // image: 'https://assets.vercel.com/image/upload/q_auto/front/vercel/dps.png'
   }
 
