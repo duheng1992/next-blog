@@ -71,19 +71,8 @@ export default function Nextra({ Component, pageProps }) {
       </Head>
 
       {theme ? (
-        <header style={{
-          position: 'sticky',
-          top: 0, left: 0,
-          height: '80px',
-          padding: '0 32px',
-          margin: '0 -16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backdropFilter: 'blur(12px)',
-          boxShadow: '0 0 #0000, 0 0 #0000, 0 1px 2px 0 rgb(0 0 0 / 0.05)',
+        <header className='header' style={{
           backgroundColor: theme === 'dark' ? 'rgba(55, 55, 55, .6)' : 'rgba(255, 255, 255, .6)',
-          zIndex: 999,
         }}>
           <h2 style={{ fontWeight: 700, fontSize: '20px', whiteSpace: 'nowrap' }}>
             我的个人主页哦
