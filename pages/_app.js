@@ -1,7 +1,6 @@
 import 'nextra-theme-blog/style.css'
 import Head from 'next/head'
 import { useEffect, useState } from 'react';
-
 import { DarkModeToggle } from '@anatoliygatt/dark-mode-toggle';
 
 import '../styles/main.css'
@@ -18,12 +17,23 @@ export default function Nextra({ Component, pageProps }) {
       html.classList.add(isDark ? 'dark' : 'light');
       html.style['colorScheme'] = isDark ? 'dark' : 'light';
     }
+
+    const button = document.querySelector('.bubbly-button');
+    if (button) {
+      button.classList.remove('animate');
+
+      button.classList.add('animate');
+      setTimeout(function () {
+        button.classList.remove('animate');
+      }, 700);
+    }
   }
 
   const handleThemeChange = (e) => {
     const isDark = e.matches;
     setTheme(isDark ? 'dark' : 'light');
     changeTheme(isDark);
+
   }
 
   useEffect(() => {
@@ -62,10 +72,11 @@ export default function Nextra({ Component, pageProps }) {
 
       {theme ? (
         <header style={{
-          position: 'fixed',
+          position: 'sticky',
           top: 0, left: 0,
-          width: '100%', height: '60px',
-          padding: '0 24px',
+          height: '80px',
+          padding: '0 32px',
+          margin: '0 -16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -74,28 +85,32 @@ export default function Nextra({ Component, pageProps }) {
           backgroundColor: theme === 'dark' ? 'rgba(55, 55, 55, .6)' : 'rgba(255, 255, 255, .6)',
           zIndex: 999,
         }}>
-          <h2 style={{ fontWeight: 700, fontSize: '20px' }}>
+          <h2 style={{ fontWeight: 700, fontSize: '20px', whiteSpace: 'nowrap' }}>
             我的个人主页哦
           </h2>
-          <DarkModeToggle
-            mode={theme}
-            dark="dark"
-            light="light"
-            size="sm"
-            inactiveTrackColor="#e2e8f0"
-            inactiveTrackColorOnHover="#f8fafc"
-            inactiveTrackColorOnActive="#cbd5e1"
-            activeTrackColor="#334155"
-            activeTrackColorOnHover="#1e293b"
-            activeTrackColorOnActive="#0f172a"
-            inactiveThumbColor="#1e293b"
-            activeThumbColor="#e2e8f0"
-            ariaLabel="Toggle color scheme"
-            onChange={(mode) => {
-              setTheme(mode);
-              changeTheme(mode === 'dark');
-            }}
-          />
+
+          <div className='bubbly-button'>
+            <DarkModeToggle
+              mode={theme}
+              dark="dark"
+              light="light"
+              size="sm"
+              inactiveTrackColor="#e2e8f0"
+              inactiveTrackColorOnHover="#f8fafc"
+              inactiveTrackColorOnActive="#cbd5e1"
+              activeTrackColor="#334155"
+              activeTrackColorOnHover="#1e293b"
+              activeTrackColorOnActive="#0f172a"
+              inactiveThumbColor="#1e293b"
+              activeThumbColor="#e2e8f0"
+              ariaLabel="Toggle color scheme"
+              onChange={(mode) => {
+                setTheme(mode);
+                changeTheme(mode === 'dark');
+              }}
+            />
+
+          </div>
         </header>
       ) : null}
 
