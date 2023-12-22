@@ -74,7 +74,7 @@ export default function Nextra({ Component, pageProps }) {
         <header className='header' style={{
           backgroundColor: theme === 'dark' ? 'rgba(55, 55, 55, .6)' : 'rgba(255, 255, 255, .6)',
         }}>
-          <h2 style={{ fontWeight: 700, fontSize: '20px', whiteSpace: 'nowrap' }}>
+          <h2 onClick={() => window.location.href = '/'} style={{ fontWeight: 700, fontSize: '20px', whiteSpace: 'nowrap' }}>
             我的个人主页哦
           </h2>
 

@@ -10,6 +10,7 @@
     "@anatoliygatt/dark-mode-toggle": "^1.0.1",
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
+    "@giscus/react": "^2.4.0",
     "gray-matter": "^4.0.3",
     "next": "^13.5.6",
     "nextra": "^2.13.2",
