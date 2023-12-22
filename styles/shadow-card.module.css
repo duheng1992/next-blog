@@ -1,0 +1,112 @@
+.container {
+  display: flex;
+  flex-direction: column;
+}
+
+.left {
+  box-shadow: -7px 0 5px -5px #ccc;
+}
+
+.right {
+  box-shadow: 7px 0 5px -5px #ccc;
+}
+
+.top {
+  box-shadow: 0 -7px 5px -5px #ccc;
+}
+
+.bottom {
+  box-shadow: 0 7px 5px -5px #ccc;
+}
+
+.left2 {
+  box-shadow: -7px 0 5px 5px #ccc;
+}
+
+.right2 {
+  box-shadow: 7px 0 5px 5px #ccc;
+}
+
+.top2 {
+  box-shadow: 0 -7px 5px 5px #ccc;
+}
+
+.bottom2 {
+  box-shadow: 0 7px 5px 5px #ccc;
+}
+
+.left,
+.right,
+.top,
+.bottom,
+.left2,
+.right2,
+.top2,
+.bottom2 {
+  margin-right: 30px;
+  width: 50px;
+  height: 50px;
+  line-height: 50px;
+  border: 1px solid #aaa;
+  text-align: center;
+}
+
+/* CSS单位：vmin 是vmin 的意思表示取视口宽度( vw )和视口高度( vh )较小的值。用于保持盒子的宽高比 */
+.box {
+  position: relative;
+  width: 20vmin;
+  height: 20vmin;
+  margin: 20vmin;
+  padding: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  grid-row-gap: 4%;
+  grid-column-gap: 4%;
+  grid-auto-flow: row;
+  /* overflow: hidden; */
+}
+
+.box div {
+  background: #fff;
+  width: 100%;
+  height: 100%;
+}
+
+.box::before,
+.box::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+}
+
+.box::before {
+  transform-origin: 0 0;
+  transform: translate(100%, 0) skewY(45deg) scaleX(.6);
+  background: linear-gradient(90deg, rgba(0, 0, 0, .3), transparent);
+  animation: shadowMoveY 5s infinite linear alternate;
+}
+
+.box::after {
+  transform-origin: 0 0;
+  transform: translate(0%, 100%) skewX(45deg) scaleY(.6);
+  background: linear-gradient(180deg, rgba(0, 0, 0, .3), transparent);
+  animation: shadowMoveX 5s infinite linear alternate;
+}
+
+@keyframes shadowMoveX {
+  to {
+    transform: translate(0%, 100%) skewX(70deg) scaleY(.6);
+  }
+}
+
+@keyframes shadowMoveY {
+  to {
+    transform: translate(100%, 0) skewY(20deg) scaleX(.6);
+  }
+}

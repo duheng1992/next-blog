@@ -1,0 +1,75 @@
+---
+title: shadow 探究(？) - 环状动画
+date: 2023/12/21
+description: box-shadow 实现圆环进度条
+tag: CSS
+author: 小肚肚肚肚肚哦
+---
+
+import style from '../../styles/ring-animation.module.css';
+
+<div className={style.container}>
+  <div className={style.shadow}>Hover</div>
+</div>
+
+#### 设置初始颜色
+
+先设置四个角的颜色（设置宽高、圆角、0边框 的代码省略）：
+
+```html
+<div class='shadow'>Hover</div>
+```
+
+```css
+--color: #1e91e9;
+
+/* 用四个阴影模拟四个象限，这里只设置一个，其实初始效果是一样的 */
+box-shadow: 0 0 0 2px var(--color), 0 0 0 2px var(--color),
+  0 0 0 2px var(--color), 0 0 0 2px var(--color);
+```
+sss
+#### 设置浮动动画
+
+```css
+
+.shadow:hover {
+  --color: #1e91e9;
+  animation: border .5s ease forwards;
+}
+
+@keyframes border {
+  /* 1/4 时，右上角：向右偏移为0，向上偏移125，不模糊，扩散2px，变为灰色 */
+  /* 左上角：向右偏移为0，向上偏移125，不模糊，扩散2px，变为灰色 */
+  25% {
+    box-shadow: 0 -125px 0 2px var(--color),
+                -60px -60px 0 2px var(--color),
+                -60px 60px 0 2px var(--color),
+                60px 60px 0 2px var(--color),
+                0 0 0 2px #ccc;
+  }
+
+  50% {
+    box-shadow: 0 -125px 0 2px var(--color),
+                -125px 0px 0 2px var(--color),
+                -60px 60px 0 2px var(--color),
+                60px 60px 0 2px var(--color),
+                0 0 0 2px #ccc;
+  }
+
+  75% {
+    box-shadow: 0 -125px 0 2px var(--color),
+                -125px 0px 0 2px var(--color),
+                0px 125px 0 2px var(--color),
+                60px 60px 0 2px var(--color),
+                0 0 0 2px #ccc;
+  }
+
+  100% {
+    box-shadow: 0 -125px 0 2px var(--color),
+                -125px 0px 0 2px var(--color),
+                0px 125px 0 2px var(--color),
+                120px 40px 0 2px var(--color),
+                0 0 0 2px #ccc;
+  }
+}
+```
