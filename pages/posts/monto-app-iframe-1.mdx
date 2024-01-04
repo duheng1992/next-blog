@@ -62,7 +62,7 @@ web 架构演进：
 
 ## iframe 方案
 
-[仓库地址：demo/iframe-isolate 分支](git@github.com:duheng1992/monto-app.git)
+[仓库地址：demo/iframe-isolate 分支](https://github.com/duheng1992/monto-app/tree/tutorial/iframe-isolate)
 
 在 Chrome 67 版本之后，为了防御多个跨站的 Web 应用处于同一个 Renderer 进程而可能产生的安全风险，**浏览器会给来自不同站点的 Web 应用分配不同的 Renderer 进程**。例如当前标签页应用中包含了多个不同站点的 iframe 应用，那么浏览器会为各自分配不同的 Renderer 进程，从而可以基于沙箱策略进行应用的进程隔离，确保攻击者难以绕过安全漏洞直接访问跨站 Web 应用。
 
