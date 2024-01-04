@@ -73,6 +73,43 @@ img.next-image {
   margin: 0;
 }
 
+.anchor {
+  position: fixed;
+  top: 150px;
+  right: 50px;
+  z-index: 9;
+  /* border-radius: 12px; */
+  backdrop-filter: blur(6px);
+  /* box-shadow: 0 0 #0000, 0 0 #0000, 0 1px 2px 0 rgb(0 0 0 / 0.05); */
+}
+
+.anchor-title {
+  margin-bottom: 8px;
+  padding: 4px 12px;
+}
+
+.anchor-item {
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 12px;
+  border-left: 3px solid #eee;
+}
+
+.anchor-item.sub-item {
+  padding-left: 24px;
+}
+
+.anchor-item:hover {
+  color: #0074de;
+  border-left: 3px solid #0074de;
+}
+
+@media screen and (max-width: 480px) {
+  .anchor {
+    display: none;
+  }
+}
+
 .prose a {
   color: #0074de;
 }
@@ -101,6 +138,22 @@ img.next-image {
 
 html.dark #autocomplete-listbox {
   background-color: #3b3b3b;
+}
+
+.title {
+  font-weight: 700;
+  font-size: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: text-shadow .2s ease-in;
+}
+
+.title:hover {
+  text-shadow: 2px 2px 20px rgba(0, 0, 0, 0.4);
+}
+
+html.dark .title:hover {
+  text-shadow: 2px 2px 20px rgba(250, 250, 250, 0.9);
 }
 
 #autocomplete-listbox > div {

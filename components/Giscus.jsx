@@ -1,8 +1,11 @@
 import React from 'react'
 
 import Giscus from '@giscus/react';
+import { storeContext } from '../store';
 
 export default function GiscusComponent() {
+  const theme = React.useContext(storeContext);
+
   return (
     <section style={{ marginTop: '32px' }}>
       <Giscus
@@ -18,7 +21,7 @@ export default function GiscusComponent() {
         mapping="pathname"
         strict="0"
         emitMetadata="0"
-        theme="light_tritanopia"
+        theme={theme === 'dark' ? 'cobalt' : 'light'}
         lang="zh-CN"
         crossorigin="anonymous"
         async={true}

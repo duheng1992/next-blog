@@ -3,6 +3,8 @@ import Head from 'next/head'
 import { useEffect, useState } from 'react';
 import { DarkModeToggle } from '@anatoliygatt/dark-mode-toggle';
 
+import { storeContext } from '../store';
+
 import '../styles/main.css'
 
 export default function Nextra({ Component, pageProps }) {
@@ -29,29 +31,28 @@ export default function Nextra({ Component, pageProps }) {
     }
   }
 
-  const handleThemeChange = (e) => {
+  const autoThemeChange = (e) => {
     const isDark = e.matches;
     setTheme(isDark ? 'dark' : 'light');
     changeTheme(isDark);
-
   }
 
   useEffect(() => {
     let mediaQueryListDark;
     if (window) {
       mediaQueryListDark = window.matchMedia('(prefers-color-scheme: dark)');
-      mediaQueryListDark.addListener(handleThemeChange);
+      mediaQueryListDark.addListener(autoThemeChange);
       // 初始化先设置一次
-      handleThemeChange(mediaQueryListDark);
+      autoThemeChange(mediaQueryListDark);
     }
 
     return () => {
       if (mediaQueryListDark) {
-        mediaQueryListDark.removeListener(handleThemeChange);
+        mediaQueryListDark.removeListener(autoThemeChange);
       }
     }
   }, []);
-
+  
   return (
     <>
       <Head>
@@ -74,8 +75,11 @@ export default function Nextra({ Component, pageProps }) {
         <header className='header' style={{
           backgroundColor: theme === 'dark' ? 'rgba(55, 55, 55, .6)' : 'rgba(255, 255, 255, .6)',
         }}>
-          <h2 onClick={() => window.location.href = '/'} style={{ fontWeight: 700, fontSize: '20px', whiteSpace: 'nowrap' }}>
-            我的个人主页哦
+          <h2
+            onClick={() => window.location.href = '/'}
+            className='title'
+          >
+            小肚肚肚肚肚哦
           </h2>
 
           <div className='bubbly-button'>
@@ -103,7 +107,9 @@ export default function Nextra({ Component, pageProps }) {
         </header>
       ) : null}
 
-      <Component {...pageProps} />
+      <storeContext.Provider value={theme}>
+        <Component {...pageProps} />
+      </storeContext.Provider>
     </>
   )
 }

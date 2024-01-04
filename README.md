@@ -1,6 +1,6 @@
-# Portfolio Starter Kit
+# 小肚肚肚肚肚哦 Blog
 
-This portfolio is built with **Next.js** and a library called [Nextra](https://nextra.vercel.app/). It allows you to write Markdown and focus on the _content_ of your portfolio. This starter includes:
+This blog is built with **Next.js** and a library called [Nextra](https://nextra.vercel.app/). It allows to write Markdown and focus on the _content_ of your portfolio. This starter includes:
 
 - Automatically configured to handle Markdown/MDX
 - Generates an RSS feed based on your posts

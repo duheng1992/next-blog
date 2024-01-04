@@ -175,13 +175,13 @@ author: 小肚肚肚肚肚哦
 多级URL的处理：当查询资源信息较多时，往往会有多级参数出现在URL中，此处要分三种情况讨论：
 
 1. 查询信息指代当层唯一id，将查询信息放在path中，构建唯一的查询路径，如：
-`# GET /authors/12/categories/2`
+`> GET /authors/12/categories/2`
 
 2. 查询信息属于对当层信息的状态过滤，将查询信息放在query中，如：
-`# GET /articles?published=true`
+`> GET /articles?published=true`
 
 3. 查询信息既包含当层id，也包含过滤信息，分别将id和过滤信息放在path和query中，如：
-`# GET /authors/12/categories/2?published=true`
+`> GET /authors/12/categories/2?published=true`
 
 
 ### HTTP状态码约束
@@ -189,11 +189,11 @@ author: 小肚肚肚肚肚哦
 客户端的每一次请求，服务器都必须给出回应。回应包括 HTTP 状态码和数据两部分。HTTP 状态码就是一个三位数，分成五个类别。
 
 ```
-# 1xx：相关信息
-# 2xx：操作成功
-# 3xx：重定向
-# 4xx：客户端错误
-# 5xx：服务器错误
+- 1xx：相关信息
+- 2xx：操作成功
+- 3xx：重定向
+- 4xx：客户端错误
+- 5xx：服务器错误
 ```
 状态码规范见[W3C关于HTTP状态码定义](https://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html)
 
@@ -252,12 +252,12 @@ POST 接口
 
 ## 参考
 
-[# 阮一峰 RESTful API 设计指南](https://www.ruanyifeng.com/blog/2014/05/restful_api.html)
+[阮一峰 RESTful API 设计指南](https://www.ruanyifeng.com/blog/2014/05/restful_api.html)
 
-[# Representational state transfer](https://en.wikipedia.org/wiki/Representational_state_transfer)
+[Representational state transfer](https://en.wikipedia.org/wiki/Representational_state_transfer)
 
 [Hypertext Transfer Protocol](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Request_methods)
 
 ```
-# 灵感来源 - Transwarp通用技术组前端团队jira文档 - 前后端接口规范
+灵感来源 - Transwarp通用技术组前端团队jira文档 - 前后端接口规范
 ```
