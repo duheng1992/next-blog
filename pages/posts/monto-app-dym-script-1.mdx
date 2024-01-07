@@ -1,0 +1,181 @@
+---
+title: MontoApp（三） - 动态 script 方案
+date: 2024/1/8
+description: 前端微服务 动态 script 方案初版
+tag: 微前端
+author: 小肚肚肚肚肚哦
+---
+
+import Giscus from '/components/Giscus';
+import Anchor from '../../components/Anchor';
+
+本节继续介绍微前端的另一种方案：动态 script。
+
+![image.png](/images/2024-1-8/2024-1-8-3.png)
+
+[仓库地址：tutorial/dynamic-script 分支](https://github.com/duheng1992/monto-app/tree/tutorial/dynamic-script)
+
+我们用 node 启动一个主应用，并配置加载功能：
+
+```html
+<div class="container">
+  <!-- 微应用渲染的插槽 -->
+  <div id="micro-app-slot"></div>
+</div>
+```
+
+```js
+loadScript({ script, id }) {
+  return new Promise((resolve, reject) => {
+    const $script = document.createElement("script");
+    $script.src = script;
+    $script.setAttribute("micro-script", id);
+    $script.onload = resolve;
+    $script.onerror = reject;
+    document.body.appendChild($script);
+  });
+}
+
+loadStyle({ style, id }) {
+  return new Promise((resolve, reject) => {
+    const $style = document.createElement("link");
+    $style.href = style;
+    $style.setAttribute("micro-style", id);
+    $style.rel = "stylesheet";
+    $style.onload = resolve;
+    $style.onerror = reject;
+    document.head.appendChild($style);
+  });
+}
+
+removeStyle({ id }) {
+  const $style = document.querySelector(`[micro-style=${id}]`);
+  $style && $style?.parentNode?.removeChild($style);
+}
+
+hasLoadScript({ id }) {
+  const $script = document.querySelector(`[micro-script=${id}]`);
+  return !!$script;
+}
+
+hasLoadStyle({ id }) {
+  const $style = document.querySelector(`[micro-style=${id}]`);
+  return !!$style;
+}
+```
+
+然后主应用初始化：
+
+```js
+init() {
+  this.processMicroApps();
+  this.navClickListener();
+  this.hashChangeListener();
+}
+
+processMicroApps() {
+  this.getMicroApps().then((res) => {
+    this.microApps = res;
+    this.prefetchMicroAppStatic();
+    this.createMicroAppNav();
+  });
+}
+
+prefetchMicroAppStatic() {
+  const prefetchMicroApps = this.microApps?.filter(
+    (microapp) => microapp.prefetch
+  );
+  prefetchMicroApps?.forEach((microApp) => {
+    microApp.script && this.prefetchStatic(microApp.script, "script");
+    microApp.style && this.prefetchStatic(microApp.style, "style");
+  });
+}
+
+createMicroAppNav(microApps) {
+  const fragment = new DocumentFragment();
+  this.microApps?.forEach((microApp) => {
+    // TODO: APP 数据规范检测 (例如是否有 script、mount、unmount 等）
+    const button = document.createElement("button");
+    button.textContent = microApp.name;
+    button.id = microApp.id;
+    fragment.appendChild(button);
+  });
+  nav.appendChild(fragment);
+}
+```
+
+其中 getMicroApps 是服务获取微应用列表信息，主应用姑且使用 hashchange 配置路由检测：
+
+```js
+hashChangeListener() {
+  // 监听 Hash 路由的变化，切换微应用
+  // 这里设定一个时刻页面上只有一个微应用
+  window.addEventListener("hashchange", () => {
+    this.microApps?.forEach(async (microApp) => {
+      // 匹配需要激活的微应用
+      if (microApp.id === window.location.hash.replace("#", "")) {
+        console.time(`fetch microapp ${microApp.name} static`);
+        // 加载 CSS 样式
+        microApp?.style &&
+          !this.hasLoadStyle(microApp) &&
+          (await this.loadStyle(microApp));
+        // 加载 Script 标签
+        microApp?.script &&
+          !this.hasLoadScript(microApp) &&
+          (await this.loadScript(microApp));
+        console.timeEnd(`fetch microapp ${microApp.name} static`);
+        window?.[microApp.mount]?.("#micro-app-slot");
+        // 如果存在卸载 API 则进行应用卸载处理
+      } else {
+        this.removeStyle(microApp);
+        window?.[microApp.unmount]?.();
+      }
+    });
+  });
+}
+```
+
+> 这里在子应用卸载时没有移除 js，是因为重新加载时顶级作用域会被重新执行，比如 let a = 1; 这样反复声明会报错。
+
+子应用也单独启动 node 服务：
+
+```js
+// micro1.js
+// 立即执行的匿名函数可以防止变量 root 产生冲突
+(function () {
+  let root;
+
+  window.micro1_mount = function (slot) {
+    // 以下其实可以是 React 框架或者 Vue 框架生成的 Document 元素，这里只是做一个简单的示例
+    root = document.createElement("h1");
+    root.textContent = "微应用1";
+    // 在微应用插槽上挂载 DOM 元素
+    const $slot = document.querySelector(slot);
+    $slot?.appendChild(root);
+  };
+
+  window.micro1_unmount = function () {
+    if (!root) return;
+    root.parentNode?.removeChild(root);
+  };
+})();
+
+
+// micro1.css
+h1 {
+  color: green;
+}
+```
+
+基于以上描述，其具有以下优点：
+
+- 主应用可以动态增减、更新子应用的数量，实现动态部署。
+- 微应用可以如正常应用一样进行优化，如代码分割，静态资源分离，CDN加速等。
+- 不需要如NPM库一样，配置额外的配置文件使其打包成依赖库。
+
+其问题也是与npm方案一样：
+
+- 主应用与微应用的全局变量、CSS样式、本地存储的数据无法做到很好的隔离。
+
+<Giscus />
+<Anchor name="MontoApp（三） - 动态 script 方案" />

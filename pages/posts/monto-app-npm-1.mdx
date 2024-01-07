@@ -1,0 +1,275 @@
+---
+title: MontoApp（二） - NPM 方案
+date: 2024/1/8
+description: 前端微服务 NPM 方案初版
+tag: 微前端
+author: 小肚肚肚肚肚哦
+---
+
+import Giscus from '/components/Giscus';
+import Anchor from '../../components/Anchor';
+
+本节继续介绍微前端的另一种方案：NPM
+
+NPM 包是微前端设计方案之一，在设计时需要将微应用打包成独立的 NPM 包，然后在主应用中引入和使用。
+
+## 背景知识
+
+我们一般这样在项目中引入 js：
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+  </head>
+  <body>
+    <script src="a.js"></script>
+    <script src="b.js"></script>
+    <script src="c.js"></script>
+    <script src="d.js"></script>
+  </body>
+</html>
+```
+如果有第三方依赖，那么需要按照顺序来加载：
+
+```html
+<body>
+  <script>
+    // 未加载 lodash 时，无法获取 _ 变量
+    // Uncaught ReferenceError: _ is not defined
+    console.log(_); 
+  </script>
+
+  <script src="https://cdn.bootcdn.net/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+  
+  <script>
+    // 加载 lodash 之后，可以获取 _ 变量
+    // ƒ Mc(n,t,r){var e=null==n?X:_e(n,t);return e===X?r:e}
+    console.log(_.get); 
+  </script>
+</body>
+```
+
+但是这样加载有个问题，会造成变量污染：
+
+```html
+<body>
+  <script>
+    const _ = 111;
+  </script>
+  
+  <script>
+    console.log(_); // 111
+  </script>
+  
+  <script src="https://cdn.bootcdn.net/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+  
+  <script>
+    console.log(_); // 111
+    console.log(_.get); // undefined
+  </script>
+</body>
+```
+
+## NPM 加载
+
+上面的例子，全局加载的 lodash 就失效了。如果项目很复杂，上述的情况就很不好处理了。为了解决上述问题，JavaScript 开始提供一种将程序拆分为可按需导入的单独模块，我们就使用目前通用的 ESModule 模块来进行拆分。
+
+[仓库地址：tutorial/npm-esmodule 分支](https://github.com/duheng1992/monto-app/tree/tutorial/npm-esmodule)
+
+项目结构：
+
+```js
+├── public                 # 托管的静态资源目录
+│   ├── custom_modules/    # 自定义模块
+│   │   ├── add.js                         
+│   │   └── conflict.js                                        
+│   ├── node_modules/      # 三方模块
+│   │   └── lodash-es/        
+│   └── index.html         # 应用页面
+└── app.js
+```
+
+custom_modules 中我们写入几个自定义的依赖方法：
+
+```js
+// add.js
+export function add(a, b) {
+  return a + b;
+}
+
+// conflict.js
+const _ = 111;
+console.log('conflict.js --> ', _)
+```
+
+我们启动一个本地的 node 服务来访问 js 文件。在 index.html 中写入：
+
+```html
+<script type="importmap">
+  {
+    "imports": {
+      "custom_modules/": "/custom_modules/",
+      "lodash/": "/node_modules/lodash-es/",
+      "lodash": "/node_modules/lodash-es/lodash.js"
+    }
+  }
+</script>
+```
+
+> import-maps 存在浏览器兼容性问题，可以找相应的 polyfill 进行兼容性处理。
+
+先声明 npm 包的映射关系。
+
+然后按照模块你引入：
+
+```html
+<script type="module">
+  // 自定义模块 - add 函数
+  import { add } from "custom_modules/add.js";
+  // 自定义模块 - 防冲撞测试 (_ 变量)
+  import "custom_modules/conflict.js";
+  // 三方模块 - 按需引入 lodash
+  import isNull from "lodash/isNull.js";
+
+  console.log(isNull);  // Function
+  console.log(add(1, 2)); // 3
+
+  // 在 confilict.js 中声明的 const _ = 111; 不会作用在当前脚本中
+  console.log(_);  // Uncaught ReferenceError: _ is not defined
+</script>
+```
+
+此时就不会有全局污染了，自己的变量只在自己的npm作用范围内生效，第三方包使用按需加载即可。此时就不用考虑加载顺序了。
+
+![image.png](/images/2024-1-8/2024-1-8-1.png)
+
+ESM 加载方式有如下优点：
+
+- 不需要构建工具进行打包处理；
+- 天然按需引入，并且不需要考虑模块的加载顺序；
+- 模块化作用域，不需要考虑变量名冲突问题。
+
+## NPM 微服务方案
+
+应用的构建需要生成 HTML 文件并打包 JS、CSS 以及图片等静态资源，业务组件的构建更多的是打包成应用需要通过模块化方式引入使用的 JavaScript 库。
+
+应用在构建时为了提升构建速度，同时也为了简化构建配置，通常在使用 babel-loader （转译工具）进行转译时 ， 会屏蔽 node_modules 目录下的 NPM 包，因此需要将发布的 NPM 组件转译成大多数浏览器能够兼容的 ES5 标准。
+
+![image.png](/images/2024-1-8/2024-1-8-2.png)
+
+NPM 的微前端设计方案中，各个微应用可以采用不同的技术栈，但是构建时需要像发布业务组件一样输出 ES5 & 模块化标准的 JavaScript 库（尽管开发的是应用，但是构建的不是应用程序，不需要额外生成 HTML），从而使主应用安装各自的依赖时，可以通过模块化的方式引入微应用。主应用不需要关心微应用的技术栈，不需要关心微应用的构建配置项。
+
+我们来看一个 [demo](https://github.com/duheng1992/monto-app/tree/tutorial/npm-micro)
+
+主应用我们假设使用 vue，设置子应用的路由：
+
+```js
+import ReactApp from "./React";
+import VueApp from "./Vue";
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <App />,
+    children: [
+      {
+        path: "react",
+        element: <ReactApp />,
+      },
+      {
+        path: "vue",
+        element: <VueApp />,
+      },
+    ],
+  },
+]);
+```
+
+各个子应用的入口需要改造，我们以 react 为例：
+
+```js
+let root;
+
+export function mount(containerId) {
+  console.log("react app mount");
+  root = ReactDOM.createRoot(document.getElementById(containerId));
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+}
+
+export function unmount() {
+  console.log("react app unmount: ", root);
+  root && root.unmount();
+}
+```
+
+子应用部署为 npm 并发布后，主应用直接引入（这里使用 lerna）管理：
+
+```js
+// 主应用引入
+// React.js
+const { mount, unmount } = require("react-micro-app");
+import React, { useEffect } from "react";
+
+const containerId = 'react-app';
+
+function ReactApp() {
+  useEffect(() => {
+    mount(containerId);
+    return () => {
+      unmount();
+    };
+  }, []);
+  return <div id={containerId}></div>;
+}
+
+export default React.memo(ReactApp);
+```
+如果不想额外引入微应用的 CSS 样式，那么可以将样式内联到 JS 中，当然其它的一些静态资源也需要内联到 JS 中，通过 Webpack 可以进行很好的处理。
+由于需要构建成类似于库包的模块化规范，子应用需要更改 Webpack 的配置 (以 vue 为例)：
+
+```js
+module.exports = defineConfig({
+  transpileDependencies: true,
+  // 内联 CSS 样式处理
+  css: { extract: false }
+});
+```
+
+> 思考：有没有方法可以做到主应用引入方式不变的情况下，在开发态引入的是微应用的源码（修改微应用的代码后不需要构建，直接在主应用中会热更新变更），而在生产态引入的是微应用构建后发布的 NPM 包，这种配置在单个业务组件的开发中尤为重要 ?
+
+> 开发时将依赖的应用拉下来到本地，并做关联在启动。启动器中检测本地有就使用本地，没有就使用 npm 下载使用？
+
+NPM 方案优点：
+
+- 可以按照 UMD、CommonJS 或者 ESM 等不同规范进行引入，不同依赖库间也没有强依赖
+- 不需要单独的服务器进行部署以及资源托管，只需要发布到npm仓库即可。
+- 复用性好，可以任意组合成不同的微前端系统。
+- 可以共享同一个渲染进程，天然共享 window，上下文及内存数据。
+
+
+缺点：
+
+- 主应用需要一个带路由的框架，无法做到技术无关。
+- 无法处理主子应用样式冲突
+- 微应用的构建需要做额外的配置，因为构建的不是应用，而是依赖库。
+- 微应用发布新版本后，主应用都需要重新安装并构建部署，无法做到子应用独立启动和部署。
+- 依赖 webpack 等打包工具
+- 当微应用过多，还需要考虑体积过大的优化问题，比如公共框架抽离，代码分割等。
+
+
+遗留问题：
+
+- 主应用与子应用全局变量污染
+- CSS 样式冲突
+- 存储数据冲突
+
+<Giscus />
+<Anchor name="MontoApp（二） - NPM 方案" />

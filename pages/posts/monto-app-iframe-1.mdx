@@ -1,5 +1,5 @@
 ---
-title: MontoApp - iframe 方案（一）
+title: MontoApp（一） - iframe 方案
 date: 2023/12/22
 description: 前端微服务 iframe 方案初版
 tag: 微前端
@@ -118,17 +118,18 @@ if(window.top !== window) {}
 
 **iframe 有很多优点：**
 
-- 天然的 js 隔离，省的写 sandbox 了
-- 移植性和复用性好，可以便捷地嵌在不同的主应用中
+- 天然的 js、css 隔离，省的写 sandbox 了
+- 移植性和复用性好，技术栈独立，可以便捷地嵌在不同的主应用中
 - 可以在运行时做到动态化修改
 - 切换微应用不需要刷新主应用
+- 天然的应用间资源懒加载，没有加载子应用，其资源也不会被加载。
 
 > 然而 iframe 方案有哪些问题呢？
 
 **不足：**
 
 - 首次加载 iframe 应用时，会因为服务端请求而导致内容区带来短暂的白屏效果
-- 主应用刷新时， iframe 无法保持 URL 状态（会重新加载 src 对应的初始 URL）；
+- 主应用刷新时，iframe 无法保持 URL 状态（会重新加载 src 对应的初始 URL）；
 - 主应用和 iframe 处于不同的浏览上下文，无法使 iframe 中的模态框相对于主应用居中；
 - 主应用和 iframe 微应用的数据状态同步问题：持久化数据和通信。
 - 对于非后台管理系统而言，使用 iframe 还需要考虑 SEO、移动端兼容性、加载性能等问题。
@@ -212,4 +213,4 @@ app.get("/", function (req, res) {
 ----
 
 <Giscus />
-<Anchor name="MontoApp - iframe 方案（一）" />
+<Anchor name="MontoApp（一） - iframe 方案" />

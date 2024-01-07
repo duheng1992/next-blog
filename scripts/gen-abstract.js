@@ -93,7 +93,7 @@ async function generate() {
         if (line.startsWith('#')) {
           const level = line.match(/^#+/)[0].length;
           const name = line.substring(level).trim();
-          const id = name.replace(/\s/g, '-');
+          const id = name.replace(/\s/g, '-').toLowerCase();
           const now = { id, name, level };
           // 根据层级结构和标题构造树
           if (tree.length === 0) {
