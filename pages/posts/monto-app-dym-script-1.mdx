@@ -9,13 +9,56 @@ author: 小肚肚肚肚肚哦
 import Giscus from '/components/Giscus';
 import Anchor from '../../components/Anchor';
 
-本节继续介绍微前端的另一种方案：动态 script。
+本节继续介绍微前端的另一种方案：动态 script。顾名思义，就是将当前的微应用打包后，将入口的 js 文件通过 script 加载进主应用，从而达到微前端的效果。他可能是目前实现起来最简单的一种方案。
 
 ![image.png](/images/2024-1-8/2024-1-8-3.png)
 
 [仓库地址：tutorial/dynamic-script 分支](https://github.com/duheng1992/monto-app/tree/tutorial/dynamic-script)
 
-我们用 node 启动一个主应用，并配置加载功能：
+## 主应用
+
+我们用 node 启动一个主应用:
+
+```js
+app.listen(port.main, host);
+```
+
+并在主应用里写入接口请求：
+
+```js
+app.post("/microapps", function (req, res) {
+  // 这里可以是管理后台新增菜单后存储到数据库的数据
+  // 从而可以通过管理后台动态配置微应用的菜单
+  res.json([
+    {
+      name: "micro1",
+      id: "micro1",
+      // 这里暂时以一个入口文件为示例
+      script: `http://${host}:${port.micro}/micro1.js`,
+      style: `http://${host}:${port.micro}/micro1.css`,
+      // 挂载到 window 上的启动函数 window.micro1_mount
+      mount: "micro1_mount",
+      // 挂载到 window 上的启动函数 window.micro1_unmount
+      unmount: "micro1_unmount",
+      prefetch: true,
+    },
+    {
+      name: "micro2",
+      id: "micro2",
+      script: `http://${host}:${port.micro}/micro2.js`,
+      style: `http://${host}:${port.micro}/micro2.css`,
+      mount: "micro2_mount",
+      unmount: "micro2_unmount",
+      prefetch: true,
+    },
+  ]);
+});
+```
+
+上面配置的这两个子应用，自己各自单独在自己端口启动即可。（这里公用了一个子应用端口，实际情况可能子应用端口不一样）
+
+
+然后配置主应用的 html，并配置加载功能：
 
 ```html
 <div class="container">
@@ -64,7 +107,7 @@ hasLoadStyle({ id }) {
 }
 ```
 
-然后主应用初始化：
+主应用初始化：
 
 ```js
 init() {
@@ -136,8 +179,11 @@ hashChangeListener() {
 ```
 
 > 这里在子应用卸载时没有移除 js，是因为重新加载时顶级作用域会被重新执行，比如 let a = 1; 这样反复声明会报错。
+> 同时，不写 removeScript，js 在 `window` 上挂载了子应用的 `mount` 和 `unmount` 方法也不会造成污染，没必要删除。
 
-子应用也单独启动 node 服务：
+## 子应用改造
+
+当然，各个子应用入口文件要改造，暴露钩子函数：
 
 ```js
 // micro1.js
@@ -145,6 +191,7 @@ hashChangeListener() {
 (function () {
   let root;
 
+  // 要保证各个子应用名称不一样
   window.micro1_mount = function (slot) {
     // 以下其实可以是 React 框架或者 Vue 框架生成的 Document 元素，这里只是做一个简单的示例
     root = document.createElement("h1");
@@ -167,6 +214,8 @@ h1 {
 }
 ```
 
+> 本文用了hash路由配置切换，本身就设计缺点，实战中需要自己设置更完善的路由方案。
+
 基于以上描述，其具有以下优点：
 
 - 主应用可以动态增减、更新子应用的数量，实现动态部署。
@@ -176,6 +225,20 @@ h1 {
 其问题也是与npm方案一样：
 
 - 主应用与微应用的全局变量、CSS样式、本地存储的数据无法做到很好的隔离。
+- 子应用需要改造适配，同 NPM 方案一样没办法完全解耦合。
+
+与 NPM 方案差异：
+
+- 本方案不用去除 script
+- 本方案的 script 可以做 chunk，而NPM方案只能做到 Tree Shaking。动态 script 分成了多段 chunk，体积更少了，而 NPM 则是全量构建到包里的 （使用 require 自动引入全部包），此时性能优化上应该是有差异的。
+
+> 但是感觉NPM方案，只要放入入口文件，是不是也能做到分chunk？比如这个不使用 require('react-micro-app')，而是使用动态引入：
+
+```js
+import("react-micro-app").then(chunk => {})
+```
+
+> 打 chunk 是将懒加载、公共依赖分离，是 webpack 自动化处理的过程。亲测会报错，目前还不知道可不可行。
 
 <Giscus />
 <Anchor name="MontoApp（三） - 动态 script 方案" />
