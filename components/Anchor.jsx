@@ -9,7 +9,7 @@ export default function Anchor({ name }) {
   return (
     <div className='anchor'>
       <div className='anchor-title'>Table of contents</div>
-      {anchors.map(anchor => {
+      {(anchors || []).map(anchor => {
         if (anchor.children) {
           return <Fragment key={anchor.id}>
             <AnchorItem name={anchor.name} id={anchor.id} />
