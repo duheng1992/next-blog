@@ -2,7 +2,7 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "dev": "node ./scripts/gen-abstract.js && next",
+    "dev": "node ./scripts/gen-abstract.js && next --port=8080",
     "build": "node ./scripts/gen-abstract.js useRss && next build",
     "start": "next start"
   },

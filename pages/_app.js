@@ -85,8 +85,8 @@ export default function Nextra({ Component, pageProps }) {
           <div className='bubbly-button'>
             <DarkModeToggle
               mode={theme}
-              dark="dark"
-              light="light"
+              dark="關燈"
+              light="開燈"
               size="sm"
               inactiveTrackColor="#e2e8f0"
               inactiveTrackColorOnHover="#f8fafc"
