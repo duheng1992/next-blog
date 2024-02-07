@@ -3,6 +3,7 @@ import Head from 'next/head'
 import { useEffect, useState } from 'react';
 import { DarkModeToggle } from '@anatoliygatt/dark-mode-toggle';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 import { storeContext } from '../store';
 
@@ -111,6 +112,7 @@ export default function Nextra({ Component, pageProps }) {
       <storeContext.Provider value={theme}>
         <Component {...pageProps} />
         <Analytics />
+        <SpeedInsights />
       </storeContext.Provider>
     </>
   )

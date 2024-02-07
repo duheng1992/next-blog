@@ -64,7 +64,7 @@ async function generate() {
         if (line.startsWith('#') && !isCurrentInBlock) { // 规避代码片段里的 # 注释
           const level = line.match(/^#+/)[0].length;
           const name = line.substring(level).replace(/[\\|\<|\>]/g, '').trim();
-          const id = name.replace(/\s/g, '-').replace(/[\.|、|\(|\)|\（|\）]/g, '').toLowerCase();
+          const id = name.replace(/\s/g, '-').replace(/[\.|、|\(|\)|\（|\）|\/]/g, '').toLowerCase();
           const now = { id, name, level };
           // 根据层级结构和标题构造树
           if (tree.length === 0) {
