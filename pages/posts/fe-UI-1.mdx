@@ -5,6 +5,8 @@ description: react UI库开发
 tag: React UI库
 author: 小肚肚肚肚肚哦
 ---
+import Giscus from '/components/Giscus';
+import Anchor from '/components/Anchor';
 
 ## 前言
 
@@ -13,7 +15,7 @@ author: 小肚肚肚肚肚哦
 
 ### 为什么要自己写UI库
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;现在优秀的前端开源UI库已经很多了，比如antd、Material UI、element UI等等，这些UI库生态都比较完善，文档也写得很好，你在项目中直接用不就行了，可为什么还要自己写呢？借用一句老话，租不如买，买不如造，从这个角度也能知道老用别人的总觉得有点缺陷，这里作者个人认为坚持写自己的UI库主要有这么几个原因：
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;现在优秀的前端开源UI库已经很多了，比如antd. Material UI. element UI等等，这些UI库生态都比较完善，文档也写得很好，你在项目中直接用不就行了，可为什么还要自己写呢？借用一句老话，租不如买，买不如造，从这个角度也能知道老用别人的总觉得有点缺陷，这里作者个人认为坚持写自己的UI库主要有这么几个原因：
 
 *1.* *会受制于人。*
 
@@ -33,7 +35,7 @@ author: 小肚肚肚肚肚哦
 ## 基于React
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;这里记录我现在正在搭建的企业项目，一边搭建一边记录，其乐融融，可以称得上手把手教学本学了\[doge\]。
 
-### 1、使用dumi创建
+### 1. 使用dumi创建
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dumi是一个开源的负责组件开发及组件文档生成的工具，这里仅为了方便组件库文档展示使用。在最后打包发布时，dumi不参与打包，所以这里使用dumi是可以的。
 
@@ -50,11 +52,11 @@ mkdir dux-ui && cd ./dux-ui
 
 ```sh
 $ npx @umijs/create-dumi-lib        # 初始化一个文档模式的组件库开发脚手架
-# or
+// or
 $ yarn create @umijs/dumi-lib
 
 $ npx @umijs/create-dumi-lib --site # 初始化一个站点模式的组件库开发脚手架
-# or
+// or
 $ yarn create @umijs/dumi-lib --site
 ```
 在根目录下执行命令
@@ -67,7 +69,7 @@ npm run dev
 
 ![image.png](/images/2022-3-14/2022-3-14-1.png)
 
-### 2、文件目录
+### 2. 文件目录
 
 脚手架搭建起项目后，可以看到初始文件目录
 
@@ -132,4 +134,5 @@ npm run docs
 
 至此，项目就搭建起来了！本章到此结束，下一节会逐步记录各个组件的开发过程。
 
-下一篇：[# 手把手搭建基于React的前端UI库 （二）-- 主题配置](https://juejin.cn/post/7076652936331280421)
+<Giscus />
+<Anchor name="手把手搭建基于React的前端UI库 （一）-- 项目初始化" />

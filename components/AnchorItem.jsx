@@ -1,7 +1,6 @@
 import React from 'react'
 
-export default function AnchorItem({ id, name, subItem }) {
-
+export default function AnchorItem({ id, name, level }) {
   const handleAnchorScroll = () => {
     const target = document.getElementById(id);
     if (target) {
@@ -13,6 +12,6 @@ export default function AnchorItem({ id, name, subItem }) {
   }
 
   return (
-    <div className={`anchor-item ${subItem ? 'sub-item' : ''}`} onClick={handleAnchorScroll}>{name}</div>
+    <div className="anchor-item" style={{ paddingLeft: `${(+level) * 12}px` }} onClick={handleAnchorScroll}>{name}</div>
   )
 }

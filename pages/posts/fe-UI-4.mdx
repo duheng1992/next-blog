@@ -5,6 +5,9 @@ description: react UI库开发
 tag: React UI库
 author: 小肚肚肚肚肚哦
 ---
+import Giscus from '/components/Giscus';
+import Anchor from '/components/Anchor';
+
 ## 前言
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;承接上一篇[# 手把手搭建基于React的前端UI库 （三）-- 基础组件Icon和Button](https://juejin.cn/post/7076668781044924453)。我们继续添加组件，本次记录的是布局组件Box和Combine。
@@ -150,6 +153,7 @@ const Combine = ({
                     ...
                 </div>
             </>
+          )
         )}
     </CombineWrap>
   )
@@ -235,5 +239,8 @@ T_SPACING_COMMON_XXXLG: '32px',
 ### 参考
 
 [React-components](https://ucloud-fe.github.io/react-components/)
-<br>
+
 [Antd之Space和Grid](https://ant.design/components/grid-cn/)
+
+<Giscus />
+<Anchor name="手把手搭建基于React的前端UI库（四）-- 布局组件" />

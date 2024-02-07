@@ -137,7 +137,7 @@ prefetchMicroAppStatic() {
 createMicroAppNav(microApps) {
   const fragment = new DocumentFragment();
   this.microApps?.forEach((microApp) => {
-    // TODO: APP 数据规范检测 (例如是否有 script、mount、unmount 等）
+    // TODO: APP 数据规范检测 (例如是否有 script. mount. unmount 等）
     const button = document.createElement("button");
     button.textContent = microApp.name;
     button.id = microApp.id;
@@ -225,14 +225,14 @@ app.listen(port.micro, host);
 
 基于以上描述，其具有以下优点：
 
-- 主应用可以动态增减、更新子应用的数量，实现动态部署。
+- 主应用可以动态增减. 更新子应用的数量，实现动态部署。
 - 微应用可以如正常应用一样进行优化，如代码分割，静态资源分离，CDN加速等。
 - 不需要如NPM库一样，配置额外的配置文件使其打包成依赖库。
 - 主子应用天然同域（除了加载js时要跨域）
 
 其问题也是与npm方案一样：
 
-- 主应用与微应用的全局变量、CSS样式、本地存储的数据无法做到很好的隔离。
+- 主应用与微应用的全局变量. CSS样式. 本地存储的数据无法做到很好的隔离。
 - 子应用需要改造适配，同 NPM 方案一样没办法完全解耦合。
 
 与 NPM 方案差异：
@@ -246,7 +246,7 @@ app.listen(port.micro, host);
 import("react-micro-app").then(chunk => {})
 ```
 
-> 打 chunk 是将懒加载、公共依赖分离，是 webpack 自动化处理的过程。亲测会报错，目前还不知道可不可行。
+> 打 chunk 是将懒加载. 公共依赖分离，是 webpack 自动化处理的过程。亲测会报错，目前还不知道可不可行。
 
 <Giscus />
 <Anchor name="MontoApp（三） - 动态 script 方案" />

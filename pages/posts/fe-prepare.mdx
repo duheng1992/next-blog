@@ -6,17 +6,18 @@ tag: web development
 author: 小肚肚肚肚肚哦
 ---
 
-# 前端开发环境搭建
+import Giscus from '/components/Giscus';
+import Anchor from '/components/Anchor';
 
-## 1、node环境与开发工具准备
+## 1. node环境与开发工具准备
 
 前端工程化开发，本地启动开发环境都是基于nodejs的，命令行里输入指令`node -v`可以帮助确认您的电脑上是否安装了node，如果没有安装，则可以去 [node官网](http://nodejs.cn/download/) 下载安装包，如下图所示：
 ![node官网下载界面](/images/2022-3-1/2022-3-1-1.png)
 不管是在windows还是在mac环境下，都是一键傻瓜式安装，甚至连环境变量都不需要手动配置，这里就不过多介绍了。
 
 
-## 2、开发工具准备
-前端的开发工具，常见的有VSCode、WebStorm、Atom等，只需用其中之一便足可以完成您的开发任务。这里笔者给出常用编辑器的对比。
+## 2. 开发工具准备
+前端的开发工具，常见的有VSCode. WebStorm. Atom等，只需用其中之一便足可以完成您的开发任务。这里笔者给出常用编辑器的对比。
 
 
 | 工具名称 | 优点 | 缺点 | 推荐度 |
@@ -36,11 +37,11 @@ vsCode官网地址为：`https://code.visualstudio.com/`，开发者可以下载
 
 atom也是免费的开发工具，这个根据自己的喜好来使用。作者一开始写网页也是用的atom，但是当你下载了官网的安装包，看到他的大小后，或者在使用很长一段时间后打开资源管理器后，你可能就会像作者一样弃用它！这里还是给出其官网地址`https://atom.io/`，他的界面作者还是挺喜欢的。
 
-## 3、react项目开发环境搭建
+## 3. react项目开发环境搭建
 react工程化项目创建的脚手架工具这里作者介绍主流的两种：`create-react-app`和`vite`.
-### 3.1、create-react-app构建
+### 3.1. create-react-app构建
 这里使用npx安装：`npx create-react-app <工程名>`。
-注意工程名称使用字母数字连接线的形式(范例参考：<https://create-react-app.dev/docs/getting-started/>)，这里作者使用hello-world1.
+注意工程名称使用字母数字连接线的形式(范例参考：\<https://create-react-app.dev/docs/getting-started/> )，这里作者使用hello-world1.
 构建成功后会看到控制台打印如下指令：
 
 ![10.png](/images/2022-3-1/2022-3-1-3.png)
@@ -52,7 +53,7 @@ react工程化项目创建的脚手架工具这里作者介绍主流的两种：
 
 ![11.png](/images/2022-3-1/2022-3-1-4.png)
 
-### 3.2、vite构建
+### 3.2. vite构建
 终端输入指令
 ```sh
 # npm 6.x
@@ -60,27 +61,28 @@ npm init vite@latest <工程名> --template <模板名>
 # npm 7+
 npm init vite@latest <工程名> -- --template <模板名>
 ```
-这里我们当然使用`react`作为模板名、hello-world2作为工程名来构建工程目录。输入指令后你会发现项目构建的很快，那是因为脚手架没有默认帮你安装依赖，所以要进入工程目录（`cd ./hello-world2`）并手动安装依赖：`npm install`。依赖安装完成后，即可启动项目：`npm run dev`，同样的，在浏览器输入网址`localhost:3000`即可看到欢迎界面：
+这里我们当然使用`react`作为模板名. hello-world2作为工程名来构建工程目录。输入指令后你会发现项目构建的很快，那是因为脚手架没有默认帮你安装依赖，所以要进入工程目录（`cd ./hello-world2`）并手动安装依赖：`npm install`。依赖安装完成后，即可启动项目：`npm run dev`，同样的，在浏览器输入网址`localhost:3000`即可看到欢迎界面：
 
 ![12.png](/images/2022-3-1/2022-3-1-5.png)
 
-至此项目就启动完毕了~~ <br><br>
+至此项目就启动完毕了~~ 
+
 如果您只是想快速开发一个项目，环境配置到这里就结束了。以下内容为选择性观看内容，如果您觉得依赖安装比较慢，又或者需要管理不同版本的node，可以继续往下看。
 
-## 4、依赖安装的方式(选读)
+## 4. 依赖安装的方式(选读)
 上边章节中，作者主要使用`npm install`的方式安装依赖，但是有时候，尤其是网络不太好的情况下，依赖总是不能被正确安装，出现安装错误。这个时候可能就需要进行下一步操作。
-### 4.1、npm国内镜像配置
+### 4.1. npm国内镜像配置
 国内npm镜像可以绕开被墙的困扰，作者推荐taobao的镜像。你可以这样执行命令：
-`npm install -g cnpm --registry=https://registry.npm.taobao.org`，这样就全局安装了使用的taobao国内镜像的cnpm指令。你在项目根目录下试试`cnpm install`就会快很多。<br>
+`npm install -g cnpm --registry=https://registry.npm.taobao.org`，这样就全局安装了使用的taobao国内镜像的cnpm指令。你在项目根目录下试试`cnpm install`就会快很多。
 你还可以这样配置镜像：
 `npm config set registry https://registry.npm.taobao.org`，这样你即使使用npm指令安装，也会走国内镜像安装。
 
-### 4.2、不同的依赖安装策略
+### 4.2. 不同的依赖安装策略
 前端工程化项目依赖安装不只有npm方式，还有他的各种变种。比如安装速度快，版本能够更好统一的`yarn`或者运行速度更快的`pnpm`。细心的读者可以发现，上面`create-react-app`安装的方式使用了`npx`，而没有使用`npm -g`这种全局指令方式。在`npm 5.2`以后的版本默认会安装`npx`命令，它可以避免全局安装模块。这些不同的策略在之后的文章中会提及，在这里不做过多的赘述。
 
-### 4.3、使用nvm管理node版本
+### 4.3. 使用nvm管理node版本
 nvm是目前比较主流的node版本管理工具，类似的还有nodist（`https://github.com/nullivex/nodist/releases`）。这里以nvm为准进行介绍。
-#### 4.3.1、windows环境安装
+#### 4.3.1. windows环境安装
 进入官网下载链接`https://github.com/coreybutler/nvm-windows/releases`，下载assets中的安装包（文章末尾提供安装包）。
 
 ![13.png](/images/2022-3-1/2022-3-1-6.png)
@@ -94,7 +96,7 @@ nvm是目前比较主流的node版本管理工具，类似的还有nodist（`htt
 ![15.png](/images/2022-3-1/2022-3-1-8.png)
 
 看到版本说明已经正确安装！！
-#### 4.3.2、MacOS环境安装（需翻墙）
+#### 4.3.2. MacOS环境安装（需翻墙）
 进入官网下载链接`https://github.com/nvm-sh/nvm#installing-and-updating`，可以看到安装指引，我们遵从官方给的指令直接执行即可：
 ```sh
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
@@ -119,7 +121,7 @@ curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
 如果很不幸你叒叕出现了如下错误，不要惊慌，应该是没有检测到你的github账户，你只需要打开github主页登录账号重试即可。
 > unable to access 'https://github.com/nvm-sh/nvm.git/': LibreSSL SSL_connect: SSL_ERROR_SYSCALL in connection to github.com:443
 
-最后！<br>
+最后！
 
 安装成功的界面如下：
 
@@ -138,7 +140,7 @@ export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || pr
 
 成功！
 
-### 4.3.3、nvm基础使用
+##### 4.3.3. nvm基础使用
 
 我们可以使用`nvm list`命令查看当前node的版本列表
 
@@ -168,7 +170,11 @@ windows下使用过程中若出现如下错误：
 
 至此，前端工程化项目的环境配置已经结束！ 
 
-## 5、附件
-附件清单：vscode安装包、nvm安装包（win）、atom安装包（mac）。<br>
+## 5. 附件
+附件清单：vscode安装包. nvm安装包（win）. atom安装包（mac）。
+
 下载链接：
 > 链接: https://pan.baidu.com/s/1zD2s9UjXrVZ06NANnx8oXg  提取码: 5diu
+
+<Giscus />
+<Anchor name="前端开发环境搭建" />

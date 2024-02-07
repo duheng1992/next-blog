@@ -3,40 +3,6 @@ const path = require('path')
 const RSS = require('rss')
 const matter = require('gray-matter')
 
-// nodes 类型：{ name: '引', level: 1 }
-// function buildLevelTree(nodes) {
-//   const tree = [];
-
-//   if (!nodes || nodes.length === 0) {
-//     return tree;
-//   }
-
-//   const valleyIndex = findValley(nodes);
-//   console.log(valleyIndex)
-
-// }
-
-// function findValley(nodes) {
-//   let cursor = 0;
-//   let isValley = false;
-//   // 从头开始找，依次找到 level 的峰谷
-//   while (!isValley) {
-//     if (cursor > nodes.length) {
-//       break;
-//     }
-
-//     if (nodes[cursor].level > nodes[cursor + 1].level) {
-//       isValley = true;
-//       // 此时 cursor-1 的位置就是峰谷位置
-//       break;
-//     } else {
-//       cursor++;
-//     }
-//   }
-
-//   return cursor - 1;
-// }
-
 async function generate() {
   const useRss = process.argv.slice(2);
 
@@ -80,6 +46,7 @@ async function generate() {
       // 所有 push 的地方，记录一下上一次最后一个节点的位置
       let lastNode = null;
       let lastNodeParentArray = tree;
+      let isCurrentInBlock = false; // 检测当前是否在代码块中
 
       // 将Markdown文本分成多行
       const lines = post.content.split('\n');
@@ -88,12 +55,16 @@ async function generate() {
 
       // 每一个for是一篇文章
       for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+        const line = lines[i].trim();
+        if (line.startsWith('```')) {
+          // 进入/出去代码块
+          isCurrentInBlock = !isCurrentInBlock;
+        }
         // 处理标题
-        if (line.startsWith('#')) {
+        if (line.startsWith('#') && !isCurrentInBlock) { // 规避代码片段里的 # 注释
           const level = line.match(/^#+/)[0].length;
-          const name = line.substring(level).trim();
-          const id = name.replace(/\s/g, '-').toLowerCase();
+          const name = line.substring(level).replace(/[\\|\<|\>]/g, '').trim();
+          const id = name.replace(/\s/g, '-').replace(/[\.|、|\(|\)|\（|\）]/g, '').toLowerCase();
           const now = { id, name, level };
           // 根据层级结构和标题构造树
           if (tree.length === 0) {
@@ -117,7 +88,8 @@ async function generate() {
           lastNode = now;
         }
       }
-    })
+    });
+    // console.log(JSON.stringify(directories))
   }
 
   if (useRss && allPosts.length) {

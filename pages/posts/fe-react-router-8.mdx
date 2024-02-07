@@ -1,0 +1,908 @@
+---
+title: React Router v6 官方文档翻译（八） - 新版新增功能汇总
+date: 2022/10/25
+description: react router 官网解读
+tag: React router
+author: 小肚肚肚肚肚哦
+---
+import Giscus from '/components/Giscus';
+import Anchor from '/components/Anchor';
+
+React Router v6版本，听说又更新了一版，官网文档也更新了（6.4.2）。这里就汇总翻译一下文档更新的内容。
+
+了解其他 React Router v6 的官网文档，可以看我本专栏往期的文章。
+
+## 1. 关于 Routers
+
+API创建router对象：
+
+### createBrowserRouter
+
+类型定义：
+
+```js
+function createBrowserRouter(
+  routes: RouteObject[],
+  opts?: {
+    basename?: string;
+    window?: Window;
+  }
+): RemixRouter;
+```
+
+这个 API 用于使用js代码创建一个 History router。第二个属性是可选参数：
+
+- basename：相对路由根地址
+- window：重新指定window对象，常用于测试环境或者非浏览器环境
+
+使用方式如下：
+
+
+```js
+import {
+  createBrowserRouter,
+  RouterProvider,
+} from "react-router-dom";
+
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <Root />,
+    loader: rootLoader,
+    children: [
+      {
+        path: "team",
+        element: <Team />,
+        loader: teamLoader,
+      },
+    ],
+  },
+]);
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <RouterProvider router={router} />
+);
+```
+
+### createHashRouter
+
+使用方式同 createBrowserRouter，创建一个基于锚点导航的 router。
+
+### createMemoryRouter
+
+memory router是一个能够自己管理 history stack 的 History router。常用于开发工具（例如StoryBook）. 测试或非浏览器环境。
+
+类型定义：
+
+```js
+function createMemoryRouter(
+  routes: RouteObject[],
+  opts?: {
+    basename?: string;
+    initialEntries?: InitialEntry[];
+    initialIndex?: number;
+    window?: Window;
+  }
+): RemixRouter;
+```
+
+使用方式：
+
+```js
+import {
+  RouterProvider,
+  createMemoryRouter,
+} from "react-router-dom";
+import * as React from "react";
+import {
+  render,
+  waitFor,
+  screen,
+} from "@testing-library/react";
+import "@testing-library/jest-dom";
+import CalendarEvent from "./routes/event";
+
+test("event route", async () => {
+  const FAKE_EVENT = { name: "test event" };
+  const routes = [
+    {
+      path: "/events/:id",
+      element: <CalendarEvent />,
+      loader: () => FAKE_EVENT,
+    },
+  ];
+
+  const router = createMemoryRouter(routes, {
+    initialEntries: ["/", "/events/123"],
+    initialIndex: 1,
+  });
+
+  render(<RouterProvider router={router} />);
+
+  await waitFor(() => screen.getByRole("heading"));
+  expect(screen.getByRole("heading")).toHaveTextContent(
+    FAKE_EVENT.name
+  );
+});
+```
+
+其中的参数：
+
+- initialEntries：初始化的 history stack
+- initialIndex：初始化显示的 history stack 的下标
+
+
+### RouterProvider
+
+给上述创建router的API提供一个容器。其有第二个参数 `fallbackElement={<SpinnerOfDoom />}`，可以提供一个在路由加载过程中 loading的自定义组件。
+
+## 2. 关于 Route 组件
+
+### 添加新属性 loader
+
+路由在渲染之前加载的加载器。当路由跳转时，loader函数会异步的执行，并且在目标路由组件中可以获取到。
+
+使用方式：
+```js
+ {
+    element: <Team />,
+    path: ":teamId",
+    loader: async ({ params }) => {
+      return fetch(`/api/teams/${params.teamId}.json`);
+    },
+  },
+```
+
+参数 params 是路由参数。可以返回任何你想要的内容，推荐使用 fetch 或者 Promise。
+
+loader 加载的数据可以在跳转之后的界面 通过 useLoaderData 获取。使用方式见下面 hooks 的更新内容。
+
+### 添加新属性 action
+
+提供一种路由切换时触发的方法。该方式允许在路由跳转时推送一个 ajax 请求出去。
+
+使用方式：
+
+```js
+// 定义
+<Route
+  path="/song/:songId/edit"
+  element={<EditSong />}
+  action={async ({ params, request }) => {
+    let formData = await request.formData();
+    return fakeUpdateSong(params.songId, formData);
+  }}
+  loader={({ params }) => {
+    return fakeGetSong(params.songId);
+  }}
+/>
+
+// forms
+<Form method="post" action="/songs" />;
+<fetcher.Form method="put" action="/songs/123/edit" />;
+
+// imperative submissions
+let submit = useSubmit();
+submit(data, {
+  method: "delete",
+  action: "/songs/123",
+});
+fetcher.submit(data, {
+  method: "patch",
+  action: "/songs/123/edit",
+});
+
+```
+
+触发方式为非GET类的请求，并提供两个参数：
+
+- params 路由动态参数
+- request fetch请求的实例
+
+### errorElement
+
+只适用于API动态创建的router。使用方式：
+```jsx
+<Route
+  path="/invoices/:id"
+  // if an exception is thrown here
+  loader={loadInvoice}
+  // here
+  action={updateInvoice}
+  // or here
+  element={<Invoice />}
+  // this will render instead of `element`
+  errorElement={<ErrorBoundary />}
+/>;
+
+function Invoice() {
+  return <div>Happy {path}</div>;
+}
+
+function ErrorBoundary() {
+  let error = useRouteError();
+  console.error(error);
+  // Uncaught ReferenceError: path is not defined
+  return <div>Dang!</div>;
+}
+```
+提供一种路由跳转错误后的补救方案。在action. loader或者组件渲染过程中抛出错误后，可以在这里捕获并代替显示自定义的错误界面。
+
+### shouldRevalidate
+
+作为一个优化项，用于对loader做校验。他是一个函数，在路由 loader 获取数据之前调用，该函数返回一个布尔值，如果返回布尔值，本次 loader 函数将不会调用，界面数据不会改变。
+
+使用方式：
+```jsx
+<Route
+  path="meals-plans"
+  element={<MealPlans />}
+  loader={loadMealPlans}
+  shouldRevalidate={({ currentUrl }) => {
+    // only revalidate if the submission originates from
+    // the `/meal-plans/new` route.
+    return currentUrl.pathname === "/meal-plans/new";
+  }}
+>
+  <Route
+    path="new"
+    element={<NewMealPlanForm />}
+    // `loadMealPlans` will be revalidated after
+    // this action...
+    action={createMealPlan}
+  />
+  <Route
+    path=":planId/meal"
+    element={<Meal />}
+    // ...but not this one because origin the URL
+    // is not "/meal-plans/new"
+    action={updateMeal}
+  />
+</Route>
+```
+
+## 3. 关于路由组件
+
+### Await
+
+是一种类似于 React 路由懒加载（lazy）的工具。使用方式如下：
+
+```jsx
+import { Await, useLoaderData } from "react-router-dom";
+
+function Book() {
+  const { book, reviews } = useLoaderData();
+  return (
+    <div>
+      <h1>{book.title}</h1>
+      <p>{book.description}</p>
+      <React.Suspense fallback={<ReviewsSkeleton />}>
+        <Await
+          resolve={reviews}
+          errorElement={
+            <div>Could not load reviews 😬</div>
+          }
+          children={(resolvedReviews) => (
+            <Reviews items={resolvedReviews} />
+          )}
+        />
+      </React.Suspense>
+    </div>
+  );
+}
+```
+
+### Form
+
+v6版路由，对于 plain HTML form 进行了一个包装。目前仅仅在使用 API 创建路由实例的场景中使用。
+
+```jsx
+import { Form } from "react-router-dom";
+
+function NewEvent() {
+  return (
+    <Form method="post" action="/events">
+      <input type="text" name="title" />
+      <input type="text" name="description" />
+      <button type="submit">Create</button>
+    </Form>
+  );
+}
+```
+
+属性参数介绍：
+
+- action：form submit 的 url。和原生form唯一不同的是，他的默认url是最近匹配到的相对路由
+- method：表单提交的方法
+- replace：改变 history stack 的切换方式
+- relative：设置相对路由的根路由
+- reloadDocument：跳过 React Router 并使用浏览器的内置行为提交表单
+
+综合使用案例：
+
+> **总结**：action 可以接受 element 组件中传入的请求实例，在action中进行使用。而紧接着，element 组件中，又可以通过 useLoaderData 使用 loader 里加载进来的数据。
+
+```jsx
+<Route
+  path="/projects/:id"
+  element={<Project />}
+  loader={async ({ params }) => {
+    return fakeLoadProject(params.id)
+  }}
+  action={async ({ request, params }) => {
+    switch (request.method) {
+      case "put": {
+        let formData = await request.formData();
+        let name = formData.get("projectName");
+        return fakeUpdateProject(name);
+      }
+      case "delete": {
+        return fakeDeleteProject(params.id);
+      }
+      default {
+        throw new Response("", { status: 405 })
+      }
+    }
+  }}
+/>;
+
+function Project() {
+  let project = useLoaderData();
+
+  return (
+    <>
+      <Form method="put">
+        <input
+          type="text"
+          name="projectName"
+          defaultValue={project.name}
+        />
+        <button type="submit">Update Project</button>
+      </Form>
+
+      <Form method="delete">
+        <button type="submit">Delete Project</button>
+      </Form>
+    </>
+  );
+}
+```
+
+### ScrollRestoration
+
+用于在浏览器 location变化后，保持滚动条的位置。仅仅在 API 创建路由对象时有效。
+
+推荐在根路由中使用，使用方式：
+
+```jsx
+import { ScrollRestoration } from "react-router-dom";
+
+function RootRouteComponent() {
+  return (
+    <div>
+      {/* ... */}
+      <ScrollRestoration
+        getKey={(location, matches) => {
+          // default behavior
+          return location.key;
+        }}
+      />
+    </div>
+  );
+}
+```
+
+参数：
+
+- getKey：React Router 缓存滚动位置的key
+- preventScrollReset：当创建一个新的 scroll key时，页面滚动位置会被重置在顶部。你可以将该参数设置为 true 来阻止页面被重置回顶部
+
+<hr />
+
+
+## 4. Hooks
+
+### useActionData
+
+提供上一个跳转时 action 的返回值。如果没有返回值，则是 undefined。
+
+使用方式（最常用的就是表单验证）：
+
+```jsx
+import {
+  useActionData,
+  Form,
+  redirect,
+} from "react-router-dom";
+
+export default function SignUp() {
+  // 2. 获取 action 返回值
+  const errors = useActionData();
+
+  return (
+    <Form method="post">
+      <p>
+        <input type="text" name="email" />
+        {errors?.email && <span>{errors.email}</span>}
+      </p>
+
+      <p>
+        <input type="text" name="password" />
+        {errors?.password && <span>{errors.password}</span>}
+      </p>
+
+      <p>
+        <button type="submit">Sign up</button>
+      </p>
+    </Form>
+  );
+}
+
+export async function action({ request }) {
+  const formData = await request.formData();
+  const email = formData.get("email");
+  const password = formData.get("password");
+  const errors = {};
+
+  // validate the fields
+  if (typeof email !== "string" || !email.includes("@")) {
+    errors.email =
+      "That doesn't look like an email address";
+  }
+
+  if (typeof password !== "string" || password.length < 6) {
+    errors.password = "Password must be > 6 characters";
+  }
+
+  // return data if we have errors
+  if (Object.keys(errors).length) {
+    // 1. action 中 return 一个对象，而不是 redirect
+    return errors;
+  }
+
+  // otherwise create the user and redirect
+  await createUser(email, password);
+  return redirect("/dashboard");
+}
+```
+
+### useAsyncError
+
+返回 Await 组件 的reject的值：
+
+```jsx
+import { useAsyncError, Await } from "react-router-dom";
+
+function ErrorElement() {
+  const error = useAsyncError();
+  return (
+    <p>Uh Oh, something went wrong! {error.message}</p>
+  );
+}
+
+<Await
+  resolve={promiseThatRejects}
+  errorElement={<ErrorElement />}
+/>;
+```
+
+### useAsyncValue
+
+返回 Await 组件的 resolve 值：
+
+```jsx
+function ProductVariants() {
+  const variants = useAsyncValue();
+  return <div>{/* ... */}</div>;
+}
+
+// Await creates the context for the value
+<Await resolve={somePromiseForProductVariants}>
+  <ProductVariants />
+</Await>;
+```
+
+### useFetcher
+
+> useFetcher仅仅在使用 API 创建router实例中有效。
+
+
+当你需要：
+
+- 获取与 UI 路由无关的数据（弹出框. 动态表单等）
+- 无需导航即可将数据提交的操作（共享组件，如实时通讯注册）
+- 处理列表中的多个并发提交（典型的“待办事项应用程序”列表，您可以在其中单击多个按钮，并且所有按钮都应同时处于待处理状态）
+- 无限滚动容器
+
+等等，useFetcher 可以帮助到你：
+
+```jsx
+import { useFetcher } from "react-router-dom";
+
+function SomeComponent() {
+  const fetcher = useFetcher();
+
+  // 提交动作
+  React.useEffect(() => {
+    fetcher.submit(data, options);
+    fetcher.load(href);
+  }, [fetcher]);
+
+  // 可以直接获取数据
+  fetcher.state;
+  fetcher.formData;
+  fetcher.formMethod;
+  fetcher.formAction;
+  fetcher.data;
+
+  // 不会触发路由导航的表单
+  return <fetcher.Form />;
+}
+```
+
+
+fetchers 有很多内置的行为：
+
+- 中断时，自动处理fetch取消
+- 使用 POST. PUT. PATCH. DELETE 提交时，首先调用该操作：
+    - 操作完成后，页面上的数据将重新验证以捕获可能发生的任何突变，自动使您的 UI 与您的服务器状态保持同步
+- 当多个 fetcher 同时运行时，它会：
+    - 在他们每次登陆时提交最新的可用数据
+    - 确保没有陈旧的负载覆盖更新的数据，无论响应返回的顺序如何
+- 通过呈现最近的 errorElement 来处理未捕获的错误（就像来自 \<Link> 或 \<Form> 的正常导航）
+- 如果您的操作/加载程序被调用返回重定向，将重定向应用程序（就像来自 \<Link> 或 \<Form> 的正常导航一样）
+
+
+
+其中各个属性的讲解：
+
+- `fetcher.state`: 提交的状态，枚举如下：
+    -   **idle** - nothing is being fetched.
+    -   **submitting** - A route action is being called due to a fetcher submission using POST, PUT, PATCH, or DELETE
+    -   **loading** - The fetcher is calling a loader (from a `fetcher.load`) or is being revalidated after a separate submission or `useRevalidator` call
+- `fetcher.Form`: 不会导航的表单
+- `fetcher.load`: 通过 router loader 加载数据： 
+```js
+if (fetcher.state === "idle" && !fetcher.data) {
+    fetcher.load("/some/route");
+}
+```
+- `fetcher.submit`: 模拟fetcher.Form 的提交动作。比如一个用户登出的操作：
+
+```jsx
+import { useFetcher } from "react-router-dom";
+import { useFakeUserIsIdle } from "./fake/hooks";
+
+export function useIdleLogout() {
+  const fetcher = useFetcher();
+  const userIsIdle = useFakeUserIsIdle();
+
+  useEffect(() => {
+    if (userIsIdle) {
+      fetcher.submit(
+        { idle: true },
+        { method: "post", action: "/logout" }
+      );
+    }
+  }, [userIsIdle]);
+}
+```
+
+- `fetcher.data`: loader 或者 action 返回的数据会存储在这里
+- `fetcher.formData`: 当使用`<fetcher.Form>` or `fetcher.submit()`时，formData 可以用来获取提交数据：
+
+```jsx
+function TaskCheckbox({ task }) {
+  let fetcher = useFetcher();
+
+  // 通过 get 方法可以获取到formData内的值，反向影响提交表单的渲染
+  let status =
+    fetcher.formData?.get("status") || task.status;
+
+  let isComplete = status === "complete";
+
+  return (
+    <fetcher.Form method="post">
+      <button
+        type="submit"
+        name="status"
+        value={isComplete ? "incomplete" : "complete"}
+      >
+        {isComplete ? "Mark Incomplete" : "Mark Complete"}
+      </button>
+    </fetcher.Form>
+  );
+}
+```
+
+- `fetcher.formAction`: 获取当前提交的 action 的 url
+- `fetcher.formMethod`: 获取当前提交的 action 的 method
+
+
+### useFetchers
+
+返回所有fetcher的数组，但不携带 `load`, `submit`,  `Form` 信息。
+
+### useFormAction
+
+类型定义：
+```tsx
+declare function useFormAction(
+  action?: string,
+  { relative }: { relative?: RelativeRoutingType } = {}
+): string;
+```
+
+对action 的url包装了一层，会自动解析相对路径。该使用不太常见。
+
+使用方式：
+```jsx
+import { useFormAction } from "react-router-dom";
+
+function DeleteButton() {
+  return (
+    <button
+      formAction={useFormAction("destroy")}
+      formMethod="post"
+    >
+      Delete
+    </button>
+  );
+}
+```
+
+### useLoaderData
+
+用户获取route loader的返回值。
+
+使用方式：
+```jsx
+import {
+  createBrowserRouter,
+  RouterProvider,
+  useLoaderData,
+} from "react-router-dom";
+
+function loader() {
+  return fetchFakeAlbums();
+}
+
+export function Albums() {
+  const albums = useLoaderData();
+  // ...
+}
+
+const router = createBrowserRouter([
+  {
+    path: "/",
+    loader: loader,
+    element: <Albums />,
+  },
+]);
+
+ReactDOM.createRoot(el).render(
+  <RouterProvider router={router} />
+);
+```
+
+useLoaderData 不会重复提取数据。它只是读取 React Router 内部管理的 fetch 的结果，当它由于路由之外的原因重新渲染时，您无需担心它会重新获取。这也意味着返回数据和渲染之间，data是稳定的，因此您可以安全地将其传递给 React 钩子（如 useEffect）中的依赖数组。只有在操作或某些导航后再次调用加载程序时，它才会更改。
+
+
+### useMatches
+
+返回当前匹配的路由项。使用案例：面包屑导航：
+
+```jsx
+// 路由表
+<Route element={<Root />}>
+  <Route
+    path="messages"
+    element={<Messages />}
+    loader={loadMessages}
+    handle={{
+      // you can put whatever you want on a route handle
+      // here we use "crumb" and return some elements,
+      // this is what we'll render in the breadcrumbs
+      // for this route
+      crumb: () => <Link to="/message">Messages</Link>,
+    }}
+  >
+    <Route
+      path="conversation/:id"
+      element={<Thread />}
+      loader={loadThread}
+      handle={{
+        // `crumb` is your own abstraction, we decided
+        // to make this one a function so we can pass
+        // the data from the loader to it so that our
+        // breadcrumb is made up of dynamic content
+        crumb: (data) => <span>{data.threadName}</span>,
+      }}
+    />
+  </Route>
+</Route>
+
+// 导航组件
+function Breadcrumbs() {
+  let matches = useMatches();
+  let crumbs = matches
+    // first get rid of any matches that don't have handle and crumb
+    .filter((match) => Boolean(match.handle?.crumb))
+    // now map them into an array of elements, passing the loader
+    // data to each one
+    .map((match) => match.handle.crumb(match.data));
+
+  return (
+    <ol>
+      {crumbs.map((crumb, index) => (
+        <li key={index}>{crumb}</li>
+      ))}
+    </ol>
+  );
+}
+```
+
+### useNavigation
+
+获取路由加载过程中的各种导航参数，使用场景：
+
+- 全局加载 loading
+- 需要全局禁用 form
+- 提交时表单处理中的动画
+- ...
+
+使用方式：
+
+```jsx
+import { useNavigation } from "react-router-dom";
+
+function SomeComponent() {
+  const navigation = useNavigation();
+  navigation.state; // idle → submitting → loading → idle
+  navigation.location;
+  navigation.formData;
+  navigation.formAction;
+  navigation.formMethod;
+}
+```
+
+### useRevalidator
+
+用于重新验证数据的场景，使用方式：
+```jsx
+import { useRevalidator } from "react-router-dom";
+
+function WindowFocusRevalidator() {
+  let revalidator = useRevalidator();
+
+  useFakeWindowFocus(() => {
+    revalidator.revalidate();
+  });
+
+  return (
+    <div hidden={revalidator.state === "idle"}>
+      Revalidating...
+    </div>
+  );
+}
+```
+
+### useRouteError
+
+在 errorElement属性组件内部使用，返回任何路由中出现的错误。使用方式：
+
+```jsx
+function ErrorBoundary() {
+  const error = useRouteError();
+  console.error(error);
+  return <div>{error.message}</div>;
+}
+
+<Route
+  errorElement={<ErrorBoundary />}
+  loader={() => {
+    // unexpected errors in loaders/actions
+    something.that.breaks();
+  }}
+  action={() => {
+    // stuff you throw on purpose in loaders/actions
+    throw new Response("Bad Request", { status: 400 });
+  }}
+  element={
+    // and errors thrown while rendering
+    <div>{breaks.while.rendering}</div>
+  }
+/>;
+```
+
+### useRouteLoaderData
+
+收集路由树上所有的loader数据。在需要全局把控多嵌套路由参数时比较有用。
+
+使用方式：
+
+```jsx
+createBrowserRouter([
+  {
+    path: "/",
+    loader: () => fetchUser(),
+    element: <Root />,
+    id: "root",
+    children: [
+      {
+        path: "jobs/:jobId",
+        loader: loadJob,
+        element: <JobListing />,
+      },
+    ],
+  },
+]);
+
+...
+const user = useRouteLoaderData("root");
+```
+
+通过路由的id来识别路由树的起点。
+
+### useSubmit
+
+动态提交表单。使用方式：
+```jsx
+import { useSubmit, Form } from "react-router-dom";
+
+function SearchField() {
+  let submit = useSubmit();
+  return (
+    <Form
+      onChange={(event) => {
+        submit(event.currentTarget, { method: "post", action: "/check" });
+      }}
+    >
+      <input type="text" name="search" />
+      <button type="submit">Search</button>
+    </Form>
+  );
+}
+```
+
+## 5. 新增小工具
+
+### json
+
+json转换工具：
+
+```jsx
+import { json } from "react-router-dom";
+
+const loader = async () => {
+  const data = getSomeData();
+  return json(data);
+};
+```
+
+### redirect
+
+重定向。在 loader 和 action 中推荐使用，而不是 useNavigate，他等价于如下操作：
+
+```js
+new Response("", {
+  status: 302,
+  headers: {
+    Location: someUrl,
+  },
+});
+```
+使用案例：
+```jsx
+import { redirect } from "react-router-dom";
+
+const loader = async () => {
+  const user = await getUser();
+  if (!user) {
+    return redirect("/login");
+  }
+};
+```
+
+<Giscus />
+<Anchor name="React Router v6 官方文档翻译（八） - 新版新增功能汇总" />

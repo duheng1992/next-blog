@@ -5,16 +5,18 @@ description: react router 官网解读
 tag: React router
 author: 小肚肚肚肚肚哦
 ---
+import Giscus from '/components/Giscus';
+import Anchor from '/components/Anchor';
 
 # 主要概念
 
 > 原文路径：https://reactrouter.com/docs/en/v6/getting-started/concepts
 
-你可能会好奇，React Router是怎么运行起来的，他又是怎么辅助构建App的？换句话说，路由router到底是什么？<br>
+你可能会好奇，React Router是怎么运行起来的，他又是怎么辅助构建App的？换句话说，路由router到底是什么？
 
-如果你曾经想过上述问题，或者你想要更深入的了解路由机制，那么本篇文章可以帮助到你。本文包含React Router所有核心概念的详细解释。<br>
+如果你曾经想过上述问题，或者你想要更深入的了解路由机制，那么本篇文章可以帮助到你。本文包含React Router所有核心概念的详细解释。
 
-同时也请不要因为这篇文章而钻牛角尖，React Router的基本使用还是很简单的，业务使用的话，也不需要挖掘这么深入。<br>
+同时也请不要因为这篇文章而钻牛角尖，React Router的基本使用还是很简单的，业务使用的话，也不需要挖掘这么深入。
 
 React Router可不仅仅是一个url的映射函数，他是一套关于构建完整的用户界面的URL映射机制，所以会有更多的概念和规范。我们将会在以下三点来讨论：
 
@@ -35,7 +37,7 @@ React Router可不仅仅是一个url的映射函数，他是一套关于构建�
 - **History Stack** - 当用户使用路由跳转时，浏览器维护一个路由栈，对于栈中的每一个路由进行追溯。如果你长按浏览器中的向后按钮，你会看到浏览器的路由跳转历史。
 - **Client Side Routing (CSR)** - 扁平化HTML文档跳转时，浏览器会自动维护一个history stack，用户侧的路由可以让开发者在不访问后端服务的前提下操作路由堆栈。
 - **History** React Router内置对象，用户可以用它获取路由订阅信息，同时也提供了一些API来然用户操作history stack。
-- **History Action** - history stack的操作，有Pop、Push和Replace。可使用Push来新添加一个路由入口，使用Replace也可以达到类似的效果，只是会在堆栈中替换掉当前的路由，使用Pop来获取上一个历史路由，用以浏览器返回。
+- **History Action** - history stack的操作，有Pop. Push和Replace。可使用Push来新添加一个路由入口，使用Replace也可以达到类似的效果，只是会在堆栈中替换掉当前的路由，使用Pop来获取上一个历史路由，用以浏览器返回。
 - **Segment** - 介于'/'之间的URL片段。比如，’/users/123‘就有两个片段。
 - **Path Pattern** - 带参URL。比如动态片段'/users/:userId'和星号片段'/docs/\*'。是一种React Router路由的匹配模式。
 - **Dynamic Segment** - 动态片段，见上边描述。'users/:userId'可以精确匹配'users/123'.
@@ -43,7 +45,7 @@ React Router可不仅仅是一个url的映射函数，他是一套关于构建�
 - **Router** - 有状态路由组件。层级嵌套使用。
 - **Route Config** - 路由树。通过匹配机制来构建路由分支。
 - **Route** - 路由元素的基础组件。有path和element两个参数。path是匹配模式，当path匹配成功后，element中的元素才会被渲染。
-- **Nested Routes** - 嵌套路由。路由可以有自己的孩子，每一个路由都定义了URL片段，单个URL可以同时匹配路由树中的多个路由。这使得可以使用outlet、相对路由等来布局嵌套dom结构。
+- **Nested Routes** - 嵌套路由。路由可以有自己的孩子，每一个路由都定义了URL片段，单个URL可以同时匹配路由树中的多个路由。这使得可以使用outlet. 相对路由等来布局嵌套dom结构。
 - **Relative links** - 相对路由。不使用'/'开头的路由。他会继承父级路由作为前缀来进行匹配。这使得深层次的URL渲染变得容易，因为你不用再考虑如何获得完整的上下文路由了。
 - **Match** - 当路由与URL匹配时用于保存信息的对象。比如，匹配的URL参数和路径名。
 - **Matches** - 匹配当前位置的路由数组。用于嵌套路由中。
@@ -54,7 +56,7 @@ React Router可不仅仅是一个url的映射函数，他是一套关于构建�
 
 ### History和Location
 
-在使用React Router之前，需要先订阅浏览器路由堆栈的变更。浏览器会独立维护该堆栈的变化，所以浏览器自带的前进和后退才能够使用。传统web开发中，用户每点击前进或后退、每发起一个路由跳转都会向后端发起请求。举个例子，我们有如下的操作流程：
+在使用React Router之前，需要先订阅浏览器路由堆栈的变更。浏览器会独立维护该堆栈的变化，所以浏览器自带的前进和后退才能够使用。传统web开发中，用户每点击前进或后退. 每发起一个路由跳转都会向后端发起请求。举个例子，我们有如下的操作流程：
 
 1.  点击链接跳转到 `/dashboard`
 2.  点击链接跳转到 `/accounts`
@@ -99,7 +101,7 @@ window.addEventListener("popstate", () => {
 
 上述方法看起来不错，但是他只在用户点击后退或者前进时生效。在程序调用`window.history.pushState`或`window.history.replaceState`时却没有任何监听事件可以使用。
 
-在React Router中，history可以帮助你实现监听。他提供对push、pop、replace事件的监听：
+在React Router中，history可以帮助你实现监听。他提供对push. pop. replace事件的监听：
 
 ```js
 let history = createBrowserHistory();
@@ -217,7 +219,7 @@ location.state;
 
 ##### Location Key
 
-每一个location又有自己唯一的key。这对于锚点滚动式路由跳转、客户端数据缓存等是很有帮助的。每一个location获取唯一key后，你都可以使用扁平化数组、new Map()，甚至是locationStorage来将对应信息抽象出来。
+每一个location又有自己唯一的key。这对于锚点滚动式路由跳转. 客户端数据缓存等是很有帮助的。每一个location获取唯一key后，你都可以使用扁平化数组. new Map()，甚至是locationStorage来将对应信息抽象出来。
 
 举个🌰，在一个单一的客户端，不请求后端数据，在用户点击后退按钮时，可以通过如下设置来存储路由缓存：
 
@@ -381,7 +383,7 @@ let routes = [
 
 此时，React Router就需要做出最终决定，到底翻哪一个的牌子，大多数路由都会按照他们定义的先后顺序进行匹配，先到先得。但是使用这种算法，我们连`/`都能匹配到了。所以，我们应该更加完美的排序这些匹配模式，进而达到我们想要的匹配结果。这也是v6比较智能的一个体现。
 
-这个例子中，我们直观的感觉`/teams/new`应该是最终的结果。我们所做的就是教会了React Router去完成这个任务。在匹配的过程中，React Router会按照片段序号进行排序（包括静态的、动态的和星号片段等），挑选最适合的匹配模式，而对于开发者，再也不用考虑路由配置的先后放置顺序了。
+这个例子中，我们直观的感觉`/teams/new`应该是最终的结果。我们所做的就是教会了React Router去完成这个任务。在匹配的过程中，React Router会按照片段序号进行排序（包括静态的. 动态的和星号片段等），挑选最适合的匹配模式，而对于开发者，再也不用考虑路由配置的先后放置顺序了。
 
 #### Pathless Routes
 
@@ -698,7 +700,7 @@ URL变化的这个动作叫做导航（navigation），在React Router中有两�
 
 然而，link有局限性：
 
-- 仍然是渲染一个a标签（因此键盘操作、可聚焦和SEO可以使用）
+- 仍然是渲染一个a标签（因此键盘操作. 可聚焦和SEO可以使用）
 - 没有阻止浏览器的默认行为，比如右键点击或者按住ctrl后新建一个tab页签。
 
 嵌套路由不仅仅是渲染布局，他也能处理相对路由。还拿之前的例子：
@@ -804,3 +806,7 @@ That's all !
 <hr />
 
 文章较长，翻译不易，都看到这里了，要不点个赞再走呗🐶 ~~
+
+
+<Giscus />
+<Anchor name="React Router v6 官方文档翻译 （三） ---- 主要概念" />

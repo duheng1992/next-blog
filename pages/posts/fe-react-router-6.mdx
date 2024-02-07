@@ -1,0 +1,527 @@
+---
+title: React Router v6 官方文档翻译 （六） ---- Hooks
+date: 2022/8/24
+description: react router 官网解读
+tag: React router
+author: 小肚肚肚肚肚哦
+---
+import Giscus from '/components/Giscus';
+import Anchor from '/components/Anchor';
+
+
+> 专栏说明：对于react-router v6版本，有同事反应缺少相对完整的中文文档，查看不方便。为了便于使用，作者对[官网文档](https://link.juejin.cn/?target=https%3A%2F%2Freactrouter.com%2Fdocs%2Fen%2Fv6 "https://reactrouter.com/docs/en/v6")进行针对性翻译，便于v6版本更广泛的被使用。
+
+
+> 作者说明：本期的hooks仅仅在函数式组件里生效，若想要在类式组件里使用相应功能，可参见本专栏第一篇文章，自己写一个 withRouter 函数。
+
+## [useHref](https://reactrouter.com/docs/en/v6/hooks/use-href)
+
+类型定义：
+
+```ts
+declare function useHref(to: To): string;
+```
+`useHref` 返回一个完整的路由URL，指向参数 `to` 定位的地址, 这个地址可以脱离 React Router环境。使用示例：
+
+```js
+// 深层路由中
+useHref({ to: 'dashboard' }) // /home/test/dashboard
+```
+
+## [useInRouterContext](https://reactrouter.com/docs/en/v6/hooks/use-in-router-context)
+
+类型定义：
+```ts
+declare function useInRouterContext(): boolean;
+```
+当组件使用了`<Router>`渲染时，该钩子返回true，否则返回false。这对于一些需要知道组件是否在 React Router 上下文中的第三方扩展非常有用。
+
+## [useLinkClickHandler](https://reactrouter.com/docs/en/v6/hooks/use-link-click-handler)
+
+类型定义：
+```ts
+declare function useLinkClickHandler<
+  E extends Element = HTMLAnchorElement
+>(
+  to: To,
+  options?: {
+    target?: React.HTMLAttributeAnchorTarget;
+    replace?: boolean;
+    state?: any;
+  }
+): (event: React.MouseEvent<E, MouseEvent>) => void;
+```
+其返回一个能够实现`<Link>`标签功能的替代性的函数，用于在自定义跳转时使用，参数同Link标签：
+
+```jsx
+import {
+  useHref,
+  useLinkClickHandler,
+} from "react-router-dom";
+
+const StyledLink = styled("a", { color: "fuchsia" });
+
+const Link = React.forwardRef(
+  (
+    {
+      onClick,
+      replace = false,
+      state,
+      target,
+      to,
+      ...rest
+    },
+    ref
+  ) => {
+    let href = useHref(to);
+    // 调用handleClick，相当于点击了一个<Link>标签
+    let handleClick = useLinkClickHandler(to, {
+      replace,
+      state,
+      target,
+    });
+
+    return (
+      <StyledLink
+        {...rest}
+        href={href}
+        onClick={(event) => {
+          onClick?.(event);
+          if (!event.defaultPrevented) {
+            handleClick(event);
+          }
+        }}
+        ref={ref}
+        target={target}
+      />
+    );
+  }
+);
+```
+
+## [useLinkPressHandler](https://reactrouter.com/docs/en/v6/hooks/use-link-press-handler)
+
+类型定义：
+```ts
+declare function useLinkPressHandler(
+  to: To,
+  options?: {
+    replace?: boolean;
+    state?: any;
+  }
+): (event: GestureResponderEvent) => void;
+```
+功能同 useLinkClickHandler， 只不过是在移动端使用的（常用于 react-native），使用示例：
+```tsx
+import { TouchableHighlight } from "react-native";
+import { useLinkPressHandler } from "react-router-native";
+
+function Link({
+  onPress,
+  replace = false,
+  state,
+  to,
+  ...rest
+}) {
+  let handlePress = useLinkPressHandler(to, {
+    replace,
+    state,
+  });
+
+  return (
+    <TouchableHighlight
+      {...rest}
+      onPress={(event) => {
+        onPress?.(event);
+        if (!event.defaultPrevented) {
+          handlePress(event);
+        }
+      }}
+    />
+  );
+}
+```
+
+## [useLocation](https://reactrouter.com/docs/en/v6/hooks/use-location)
+
+类型定义：
+```ts
+declare function useLocation(): Location;
+
+interface Location extends Path {
+  state: unknown;
+  key: Key;
+}
+```
+
+这个就比较常用了。他返回当前路由状态下的 location 信息, 可用于路由传参。使用方式：
+```jsx
+import { useLocation } from 'react-router-dom';
+
+function App() {
+  let location = useLocation(); // hash, key, pathname, search, state
+}
+```
+
+## [useMatch](https://reactrouter.com/docs/en/v6/hooks/use-match)
+
+类型定义：
+```ts
+declare function useMatch<ParamKey extends string = string>(
+  pattern: PathPattern | string
+): PathMatch<ParamKey> | null;
+```
+
+其接受一个相对路由字符串，返回匹配到的路由表数据。示例：
+
+```js
+useMatch('/')
+```
+返回值：
+
+![image.png](/images/2022-8-26/2022-8-26-1.png)
+
+## [useNavigate](https://reactrouter.com/docs/en/v6/hooks/use-navigate)
+类型定义：
+```ts
+declare function useNavigate(): NavigateFunction;
+
+interface NavigateFunction {
+  (
+    to: To,
+    options?: { replace?: boolean; state?: any }
+  ): void;
+  (delta: number): void;
+}
+```
+
+他返回一个可以用于路由导航的函数。有一个参数 replace，如果传为 true，路由会在 history stack 中替换当前的 current， 而不是新 push 一个状态。使用示例：
+
+```jsx
+import { useNavigate } from "react-router-dom";
+
+// 表单提交后跳转页面
+function SignupForm() {
+  let navigate = useNavigate();
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    await submitForm(event.target);
+    navigate("../success", { replace: true });
+  }
+
+  return <form onSubmit={handleSubmit}>{/* ... */}</form>;
+}
+```
+
+当然也可以不传路由的 path，直接传数字：
+
+```js
+navigate(-1)
+```
+表示浏览器回退或者前进。
+
+## [useNavigationType](https://reactrouter.com/docs/en/v6/hooks/use-navigation-type)
+
+类型定义：
+```ts
+declare function useNavigationType(): NavigationType;
+
+type NavigationType = "POP" | "PUSH" | "REPLACE";
+```
+
+返回路由跳转的状态，表示当前页面是怎么样被用户跳转过来的，可选参数：pop, push, replace
+
+## [useOutlet](https://reactrouter.com/docs/en/v6/hooks/use-outlet)
+
+类型定义：
+
+```ts
+declare function useOutlet(): React.ReactElement | null;
+```
+
+返回嵌套路由中，被 `<Outlet>` 占位的子元素的路由对象。通常在子路由内部使用。示例：
+
+```js
+function Dashboard() {
+  // 打印 outlet
+  console.log(useOutlet())
+  return (
+    <div>
+      <h1>Dashboard</h1>
+      <Outlet />
+    </div>
+  );
+}
+
+function DashboardMessages() {
+  return 'DashboardMessages'
+}
+
+function DashboardTasks() {
+  return 'DashboardTasks'
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Dashboard />}>
+        {/* 子路由 */}
+        <Route
+          path="messages"
+          element={<DashboardMessages />}
+        />
+        <Route path="tasks" element={<DashboardTasks />} />
+      </Route>
+    </Routes>
+  );
+}
+```
+此时访问路由 `http://localhost:3000/messages`，页面如下：
+
+![image.png](/images/2022-8-26/2022-8-26-2.png)
+
+控制台打印：
+
+![image.png](/images/2022-8-26/2022-8-26-3.png)
+
+## [useOutletContext](https://reactrouter.com/docs/en/v6/hooks/use-outlet-context)
+
+类型定义：
+```ts
+declare function useOutletContext<
+  Context = unknown
+>(): Context;
+```
+用于父子路由共享状态。示例：
+```jsx
+// 父
+function Parent() {
+  const [count, setCount] = React.useState(0);
+  return <Outlet context={[count, setCount]} />;
+}
+
+// 子
+import { useOutletContext } from "react-router-dom";
+
+function Child() {
+  const [count, setCount] = useOutletContext();
+  const increment = () => setCount((c) => c + 1);
+  return <button onClick={increment}>{count}</button>;
+}
+```
+如果是在ts环境下，使用方式又有所不同。推荐自定义一个 context， 这样方便类型定义：
+```tsx
+// 父
+import * as React from "react";
+import type { User } from "./types";
+import { Outlet, useOutletContext } from "react-router-dom";
+
+type ContextType = { user: User | null };
+
+export default function Dashboard() {
+  const [user, setUser] = React.useState<User | null>(null);
+
+  return (
+    <div>
+      <h1>Dashboard</h1>
+      <Outlet context={{ user }} />
+    </div>
+  );
+}
+
+// 自定义 hook
+export function useUser() {
+  return useOutletContext<ContextType>();
+}
+
+// 子
+import { useUser } from "../dashboard";
+
+export default function DashboardMessages() {
+  const { user } = useUser();
+  return (
+    <div>
+      <h2>Messages</h2>
+      <p>Hello, {user.name}!</p>
+    </div>
+  );
+}
+```
+
+## [useParams](https://reactrouter.com/docs/en/v6/hooks/use-params)
+
+类型定义：
+```ts
+declare function useParams<
+  K extends string = string
+>(): Readonly<Params<K>>;
+```
+
+返回路由传参的键值对参数（不是问号传参，问号的在location的search里）。子路由也会继承父路由的所有参数。使用示例：
+```jsx
+import * as React from 'react';
+import { Routes, Route, useParams } from 'react-router-dom';
+
+function ProfilePage() {
+  // Get the userId param from the URL.
+  let { userId } = useParams();
+  // ...
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="users">
+        <Route path=":userId" element={<ProfilePage />} />
+        <Route path="me" element={...} />
+      </Route>
+    </Routes>
+  );
+}
+```
+
+## [useResolvedPath](https://reactrouter.com/docs/en/v6/hooks/use-resolved-path)
+
+类型定义：
+
+```ts
+declare function useResolvedPath(to: To): Path;
+```
+
+返回传入path的全路径。可解析出path，hash，search（location对象）
+
+
+## [useRoutes](https://reactrouter.com/docs/en/v6/hooks/use-routes)
+
+类型定义：
+```ts
+declare function useRoutes(
+  routes: RouteObject[],
+  location?: Partial<Location> | string;
+): React.ReactElement | null;
+```
+是标签 `<Routes>` 的函数式形式。使用时也不需要额外的JSX。示例：
+```jsx
+import * as React from "react";
+import { useRoutes } from "react-router-dom";
+
+function App() {
+  let element = useRoutes([
+    {
+      path: "/",
+      element: <Dashboard />,
+      children: [
+        {
+          path: "messages",
+          element: <DashboardMessages />,
+        },
+        { path: "tasks", element: <DashboardTasks /> },
+      ],
+    },
+    { path: "team", element: <AboutPage /> },
+  ]);
+
+  return element;
+}
+```
+他的返回值要么是匹配到的React元素，要么是null。
+
+## [useSearchParams](https://reactrouter.com/docs/en/v6/hooks/use-search-params)
+类型定义：
+```ts
+declare function useSearchParams(
+  defaultInit?: URLSearchParamsInit
+): [URLSearchParams, SetURLSearchParams];
+
+type ParamKeyValuePair = [string, string];
+
+type URLSearchParamsInit =
+  | string
+  | ParamKeyValuePair[]
+  | Record<string, string | string[]>
+  | URLSearchParams;
+
+type SetURLSearchParams = (
+  nextInit?: URLSearchParamsInit,
+  navigateOpts?: : { replace?: boolean; state?: any }
+) => void;
+```
+
+解析当前路径，返回location中的search；并可重新设置 search 并触发跳转。示例：
+```jsx
+import * as React from "react";
+import { useSearchParams } from "react-router-dom";
+
+function App() {
+  let [searchParams, setSearchParams] = useSearchParams();
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    let params = serializeFormQuery(event.target);
+    setSearchParams(params);
+  }
+
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>{/* ... */}</form>
+    </div>
+  );
+}
+```
+其中， setSearchParams 类似于 navigate，但是仅仅传递 search 参数。
+
+## [useSearchParams (React Native)](https://reactrouter.com/docs/en/v6/hooks/use-search-params-rn)
+
+类型定义：
+```ts
+declare function useSearchParams(
+  defaultInit?: URLSearchParamsInit
+): [URLSearchParams, SetURLSearchParams];
+
+type ParamKeyValuePair = [string, string];
+
+type URLSearchParamsInit =
+  | string
+  | ParamKeyValuePair[]
+  | Record<string, string | string[]>
+  | URLSearchParams;
+
+type SetURLSearchParams = (
+  nextInit?: URLSearchParamsInit,
+  navigateOpts?: : NavigateOptions
+) => void;
+
+interface NavigateOptions {
+  replace?: boolean;
+  state?: any;
+}
+```
+使用方式同上。示例：
+```jsx
+import * as React from "react";
+import { View, SearchForm, TextInput } from "react-native";
+import { useSearchParams } from "react-router-native";
+
+function App() {
+  let [searchParams, setSearchParams] = useSearchParams();
+  let [query, setQuery] = React.useState(
+    searchParams.get("query")
+  );
+
+  function handleSubmit() {
+    setSearchParams({ query });
+  }
+
+  return (
+    <View>
+      <SearchForm onSubmit={handleSubmit}>
+        <TextInput value={query} onChangeText={setQuery} />
+      </SearchForm>
+    </View>
+  );
+}
+```
+
+<Giscus />
+<Anchor name="React Router v6 官方文档翻译 （六） ---- Hooks" />

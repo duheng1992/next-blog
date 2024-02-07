@@ -5,6 +5,9 @@ description: react UI库开发
 tag: React UI库
 author: 小肚肚肚肚肚哦
 ---
+import Giscus from '/components/Giscus';
+import Anchor from '/components/Anchor';
+
 ## 前言
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;经过前几篇文章的讲述，我们的组件库已经初具规模：[源码](https://gitee.com/dh1992/dux-ui-react/)。现在我们讲述一下如何发布到npm上，并且配置一下gitee pages.
@@ -69,7 +72,7 @@ module: {
       {
         test: /static\/style\/icon\.css$/,
         use: [
-          // 1、webpack5中, 使用MiniCssExtractPlugin.loader代替style-loader
+          // 1. webpack5中, 使用MiniCssExtractPlugin.loader代替style-loader
           {
             loader: MiniCssExtractPlugin.loader,
           },
@@ -260,7 +263,7 @@ lib文件生成完毕~
 
 - 最后发布
 `npm publish`
-<br>
+
 看到最新的版本号生成就表示发布成功了：
 
 ![image.png](/images/2022-5-22/2022-5-22-7.png)
@@ -356,9 +359,10 @@ export default defineConfig({
 ```
 再次从第二步开始执行即可！
 
-<br>
 
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;至此，基于React的UI库的搭建. 部署. 基础组件的封装已经结束。后续我会逐步完善组件库，添加更多常用的组件，敬请期待~~
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;至此，基于React的UI库的搭建、部署、基础组件的封装已经结束。后续我会逐步完善组件库，添加更多常用的组件，敬请期待~~
+<hr />
 
-<hr>
+<Giscus />
+<Anchor name="手把手搭建基于React的前端UI库 （六）-- 打包与发布NPM" />

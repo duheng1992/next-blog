@@ -6,7 +6,10 @@ tag: web development
 author: 小肚肚肚肚肚哦
 ---
 
-之前一直比较忌讳在前端项目中使用全局状态管理工具，安装包比较大，配置起来比较繁琐，比如 Redux。但是随着项目业务的增多，一些状态很难做到组件间共享，比如登录状态、通知消息等。
+import Giscus from '/components/Giscus';
+import Anchor from '/components/Anchor';
+
+之前一直比较忌讳在前端项目中使用全局状态管理工具，安装包比较大，配置起来比较繁琐，比如 Redux。但是随着项目业务的增多，一些状态很难做到组件间共享，比如登录状态. 通知消息等。
 
 
 ## 前端状态管理方案
@@ -19,7 +22,7 @@ author: 小肚肚肚肚肚哦
 
 3. Context 全局上下文
 
-4. 状态管理工具，比如 Redux、Pinia等
+4. 状态管理工具，比如 Redux. Pinia等
 
 
 ### 1. localStorage
@@ -57,7 +60,7 @@ export function getLocalStorage(key) {
     4. 由于使用了 window 对象，非浏览器环境不可使用
     5. 无法响应式触发所有组件同步更新状态（这也是redux存在的意义）
 - 建议
-   - 存储常用的下拉菜单选择项、公用列表、枚举等。
+   - 存储常用的下拉菜单选择项. 公用列表. 枚举等。
 
 
 ### 2. Cookie
@@ -236,3 +239,6 @@ AuditAPI(...).then(() => {
 ## 总结
 
 不是万不得已，尽量不要上全局状态管理工具，使用 Context + sessionStorage 代替即可。在需要实时或触发式更新状态的地方，如果不能上 webSocket，实在要用，就使用配置简单，耦合性低的工具。同时还要照顾到安全性，推荐配置：Context + Mobx.
+
+<Giscus />
+<Anchor name="开始使用 Mobx 吧！" />

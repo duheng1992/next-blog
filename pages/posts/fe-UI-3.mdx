@@ -5,6 +5,8 @@ description: react UI库开发
 tag: React UI库
 author: 小肚肚肚肚肚哦
 ---
+import Giscus from '/components/Giscus';
+import Anchor from '/components/Anchor';
 
 ## 前言
 
@@ -15,9 +17,9 @@ author: 小肚肚肚肚肚哦
 
 ## Icon
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;图标的设计是个技术活，需要设计出自己专属的风格，就像上一期一开始讲的那样，Style风格设计是三要素之首。基础组件设计，比如按钮是扁平还是立体，输入框是方角还是圆角，加不加阴影等这些，受项目经理、产品和交互的影响会多一点，但是大体来说，应与公司同类产品保持一致，至于如何设计，那就是另外的课题了，不在本文的讨论之列。
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;图标的设计是个技术活，需要设计出自己专属的风格，就像上一期一开始讲的那样，Style风格设计是三要素之首。基础组件设计，比如按钮是扁平还是立体，输入框是方角还是圆角，加不加阴影等这些，受项目经理. 产品和交互的影响会多一点，但是大体来说，应与公司同类产品保持一致，至于如何设计，那就是另外的课题了，不在本文的讨论之列。
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;本文中的Icon图标使用字体库来完成，通过CSS无侵入式的在一个元素上加入`before`或者`after`伪类来实现图标显示，这里不是浏览器的字体，也不是客户电脑里安装的字体，也不是图片或其他方式，而且是以文字的方式显示，这样做相对比较简洁，方便修改，更重要的是利于SEO优化。浏览器兼容性比较好的字体库有`WOFF`、`WOFF2`等。字体库兼容性见[官方解释](https://developer.mozilla.org/zh-CN/docs/Web/CSS/@font-face)。字体库有专门的自定义生成工具，例如[fonteditor](http://www.fonteditor.com/)，可以试用30天；至于字体库，你也可以使用第三方开源的字体库，例如[Font Awesome](https://fontawesome.dashgame.com/)。这里作者就使用Font Awesome的woff字体库，我们打开图形创建工具fonteditor来查看这个文件：
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;本文中的Icon图标使用字体库来完成，通过CSS无侵入式的在一个元素上加入`before`或者`after`伪类来实现图标显示，这里不是浏览器的字体，也不是客户电脑里安装的字体，也不是图片或其他方式，而且是以文字的方式显示，这样做相对比较简洁，方便修改，更重要的是利于SEO优化。浏览器兼容性比较好的字体库有`WOFF`. `WOFF2`等。字体库兼容性见[官方解释](https://developer.mozilla.org/zh-CN/docs/Web/CSS/@font-face)。字体库有专门的自定义生成工具，例如[fonteditor](http://www.fonteditor.com/)，可以试用30天；至于字体库，你也可以使用第三方开源的字体库，例如[Font Awesome](https://fontawesome.dashgame.com/)。这里作者就使用Font Awesome的woff字体库，我们打开图形创建工具fonteditor来查看这个文件：
 
 ![image.png](/images/2022-3-19/2022-3-19-6.png)
 
@@ -36,7 +38,6 @@ author: 小肚肚肚肚肚哦
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;在`src/components`文件夹下，新建文件夹`Icon`，在该文件夹下新建`Icon.tsx`：
 
 ```tsx
-...
 // 定义接收参数
 export interface IconProps {
     /** 图标类型 */
@@ -54,7 +55,7 @@ const Icon = ({
     prefix,
     className,
     ...rest
-} => {
+}) => {
     const configContext = useContext(ConfigContext);
     const finalPrefix = useMemo(() => prefix || configContext.iconDefaultPrefix || 'icon__', [
         configContext.iconDefaultPrefix,
@@ -70,7 +71,6 @@ const Icon = ({
 };
 
 export default React.memo(Icon);
-
 ```
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;这里可以看到，我在全局`configContext`定义了默认的图标类名前缀，默认为`icon__`，你也可以自定义，只要和CSS样式对应即可。最后返回的是一个`IconWrap`组件，我们在`Icon`文件夹下新建`style`文件夹来放置样式包裹类，`style`下设置`font`文件夹来安置我们下载的WOFF文件，并在`style`同目录下新建`icon.css`和`index.ts`：
 
@@ -213,7 +213,7 @@ function Content(props: any) {
 export const IconWrap = styleWrap<{ spin?: boolean }>({})(Content);
 ```
 
-<hr>
+<hr />
 
 ## Button
 
@@ -395,7 +395,7 @@ switch (shape) {
 }
 ```
 
-loadingMixin的设置也一样，使得鼠标不可点击，暗灰色显示即可。<br>
+loadingMixin的设置也一样，使得鼠标不可点击，暗灰色显示即可。
 
 styleTypeMixin用来通过styleType的不同，对应的设置不同的主题配色， 以primary为例：
 
@@ -427,13 +427,14 @@ primary: {
 },
 ...
 ```
-可以看到，当`styleType='primary'时`，设置了其背景色、文字颜色、填充色、渐变、过渡、激活时的样式以及被访问后的样式等。
+可以看到，当`styleType='primary'时`，设置了其背景色. 文字颜色. 填充色. 渐变. 过渡. 激活时的样式以及被访问后的样式等。
 
 如此，一个简单的Button组件封装装好了，我们只是对样式进行了改动，其本质还是返回了一个原生按钮，原来的事件不影响使用。
 
 ### Button demo
 
 我们写个demo测试一下。在`src/components/Button`下新建`index.md`：
+
 ```tsx
 import React from 'react';
 
@@ -487,8 +488,11 @@ F12测试点击事件：
 至此，基础组件Icon和Button的记录就到此结束了。下一期会记录布局组件的搭建，敬请期待~
 
 
-<hr>
+<hr />
 
-参考：<br>
-[antd样式设计](https://ant.design/docs/spec/values-cn) <br>
-[Material UI设计](https://mui.com/zh/components/buttons/) <br>
+参考：
+[antd样式设计](https://ant.design/docs/spec/values-cn) 
+[Material UI设计](https://mui.com/zh/components/buttons/) 
+
+<Giscus />
+<Anchor name="手把手搭建基于React的前端UI库 （三）-- 基础组件Icon和Button" />

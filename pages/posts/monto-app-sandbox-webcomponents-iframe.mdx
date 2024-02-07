@@ -75,7 +75,7 @@ class MicroApp1Element extends HTMLElement {
     this.unmount();
   }
 
-  // [生命周期回调函数] 当 custom element 增加、删除、修改自身属性时，被调用
+  // [生命周期回调函数] 当 custom element 增加. 删除. 修改自身属性时，被调用
   attributeChangedCallback(attr, oldVal, newVal) {
     console.log(
       `[app:${this.name}]：执行 attributeChangedCallback 生命周期回调函数`
@@ -232,7 +232,7 @@ proxyIframeWindow() {
 }
 ```
 此时，原生的一些 API 会有问题，比如 window.alert 内部的 this 不是指向 iframe 的 window，而是指向被代理后的 proxy，因此在调用 alert 等原生函数会报错 Illegal invocation。
-同类型的方法还有很多，比如 addEventListener、atob 等。
+同类型的方法还有很多，比如 addEventListener. atob 等。
 
 这里的 getTargetValue，用于重新将这些原生 native api 的 this 修正为 iframe 的 window。
 
@@ -242,11 +242,11 @@ proxyIframeWindow() {
 getTargetValue(target, prop) {
   const value = target[prop];
 
-  // 过滤出 window.alert、window.addEventListener 等 API
+  // 过滤出 window.alert. window.addEventListener 等 API
   if (
     typeof value === "function" &&
     !this.isBoundedFunction(value) &&  // 是直接定义的 function，不是 bind 的函数，因为 如果函数已经进行了 bind，那么不应该进行再次的绑定操作
-    !this.isConstructable(value) // 过滤掉构造函数：例如原生的 Object、Array 以及用户自己创建的构造函数等。一些构造函数不需要进行 bind 操作，因为 bind 生成的函数会失去原有函数的属性和 prototype
+    !this.isConstructable(value) // 过滤掉构造函数：例如原生的 Object. Array 以及用户自己创建的构造函数等。一些构造函数不需要进行 bind 操作，因为 bind 生成的函数会失去原有函数的属性和 prototype
   ) {
     console.log('修正 this: ', prop);
 
@@ -294,7 +294,7 @@ isBoundedFunction(fn) {
 }
 
 isConstructable(fn) {
-  // 可以识别 Object、Array 等原生构造函数，也可以识别用户自己创建的构造函数
+  // 可以识别 Object. Array 等原生构造函数，也可以识别用户自己创建的构造函数
   return (
     fn.prototype &&
     // 通常情况下构造函数和类的 prototype.constructor 指向本身
@@ -302,7 +302,7 @@ isConstructable(fn) {
     // 通常情况下构造函数和类都会存在 prototype.constructor，因此长度大于等於 1
     // 需要注意普通函数中也会存在 prototype.constructor，
     // 因此如果 prototype上 有自定义属性或者方法，那么可以判定为类或者构造函数，因此这里的判断是大于 1
-    // 自建函数，比如function Person {}; ，原型链上没有方法的 class 识别、function Person() {} 识别等，其长度 = 1
+    // 自建函数，比如function Person {}; ，原型链上没有方法的 class 识别. function Person() {} 识别等，其长度 = 1
     // 注意不要使用 Object.keys 进行判断，Object.keys 无法获取 Object.defineProperty 定义的属性
     (Object.getOwnPropertyNames(fn.prototype).length > 1
       || (Object.getOwnPropertyNames(fn.prototype).length === 1 && Object.getOwnPropertyNames(fn.prototype)[0] === 'constructor'))

@@ -5,6 +5,9 @@ description: react UI库开发
 tag: React UI库
 author: 小肚肚肚肚肚哦
 ---
+import Giscus from '/components/Giscus';
+import Anchor from '/components/Anchor';
+
 ## 前言
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;由于疫情原因，被封闭在家中比较烦躁，拖了好久才开始续写UI篇的文章，抱歉。本篇是React组件库的第5篇文章，我们来实现一下Form表单的功能。本文的代码展示的是主要的核心代码，全部代码见仓库：[Gitee仓库](https://gitee.com/dh1992/dux-ui-react/)。另，我已部署了本组件库的文档地址，还请批评指正：https://dh1992.gitee.io/dux-ui-react
@@ -155,7 +158,7 @@ const handleClear = useCallback(
 | onChange       | 点选时的回调                                                      | 
 | value          | radio的值                                                     | 
 | styleType      | 样式风格, 可选 'default', 'button', 'tag', 'card', 'text', 'list' | 
-| size           | 尺寸，可选'sm', 'md', 'lg'，styleType 为 card、list 时无效             | 
+| size           | 尺寸，可选'sm', 'md', 'lg'，styleType 为 card. list 时无效             | 
 | title          | 标题，styleType 为 card 时使用                                     | 
 
  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;接下来在`src/components`下新建文件夹`Radio`，并在其中新建`index.tsx`：
@@ -230,7 +233,7 @@ ${checked &&
 
 ![image.png](/images/2022-5-22/2022-5-22-1.png)
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;可以看到，除了模拟原生样式外，还可以模拟按钮、标签和列表样式，实现方式同上，只需要将`RadioWrap`内的Icon替换成其他的组件即可。
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;可以看到，除了模拟原生样式外，还可以模拟按钮. 标签和列表样式，实现方式同上，只需要将`RadioWrap`内的Icon替换成其他的组件即可。
 
 >  表单组件比较多，这里只是讲述了基本的几个实现，为写表单组件提供一个思路，更多组件可以参见[组件库主页](https://dh1992.gitee.io/dux-ui-react/)
 
@@ -343,4 +346,7 @@ export const ItemWrap = styleWrap<{ size: string }>({
 npm install --save dux-ui
 ```
    
-   <hr />
+<hr />
+
+<Giscus />
+<Anchor name="手把手搭建基于React的前端UI库 （五）-- 基础表单组件" />

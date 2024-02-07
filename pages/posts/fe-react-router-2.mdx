@@ -5,6 +5,8 @@ description: react router 官网解读
 tag: React router
 author: 小肚肚肚肚肚哦
 ---
+import Giscus from '/components/Giscus';
+import Anchor from '/components/Anchor';
 
 
 > 专栏说明：对于react-router v6版本，有同事反应缺少相对完整的中文文档，查看不方便。为了便于使用，作者对[官网文档](https://reactrouter.com/docs/en/v6)进行针对性翻译，便于v6版本更广泛的被使用。
@@ -49,7 +51,7 @@ function withRouter(Component) {
 
 在React Router v6中，我们把v5中`<Route component>`和`<Route render>`两个API用`<Route element>`替换，主要原因有如下几点：
 
-1. 对于初学者，肯定会经常使用组件懒加载`<Suspense fallback={<Spinner />}>`，这个API里，fallback就是一个`React element`，我们之所以这么设计，就是为了让初学者能够更容易、更平滑的使用渲染函数。
+1. 对于初学者，肯定会经常使用组件懒加载`<Suspense fallback={<Spinner />}>`，这个API里，fallback就是一个`React element`，我们之所以这么设计，就是为了让初学者能够更容易. 更平滑的使用渲染函数。
 
 2. （官网说的比较复杂，我总结一下）v5版本中，`<Route component>`不能传递props，想要传递组件参数，就需要使用`<Route render>`，这就导致了v4/v5的渲染API体量会更大一些，下面是例子：
 
@@ -90,7 +92,7 @@ export default withRouter(DeepComponent);
 // 以上是列举的作者能想到的使用情况。
 ```
 
-React本身不提供任何获取`<Route>`信息的方式， 所以我们必须发明一种既能获取Route信息，又能获取自定义props的方式。庆幸的是，hooks的出现，可以替代之前的`component`、`render`和高阶组件。再看看针对以上情况，v6是怎么实现的：
+React本身不提供任何获取`<Route>`信息的方式， 所以我们必须发明一种既能获取Route信息，又能获取自定义props的方式。庆幸的是，hooks的出现，可以替代之前的`component`. `render`和高阶组件。再看看针对以上情况，v6是怎么实现的：
 
 ```jsx
 // 就像React原生的 <Suspense> 那样使用路由组件!
@@ -417,4 +419,9 @@ function User() {
 
 不同于直接渲染组件，remix会渲染最近的[catch boundary](https://remix.run/docs/en/v1/api/conventions#catchboundary)。
 
-<hr>FAQs finished !</hr>
+<hr />
+
+FAQs finished !
+
+<Giscus />
+<Anchor name="React Router v6 官方文档翻译 （二） ---- FAQs" />
