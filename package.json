@@ -1,6 +1,7 @@
 {
   "private": true,
   "license": "MIT",
+  "version": "1.0.0",
   "scripts": {
     "dev": "node ./scripts/gen-abstract.js && next --port=8080",
     "build": "node ./scripts/gen-abstract.js useRss && next build",
