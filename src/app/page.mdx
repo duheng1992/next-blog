@@ -1,0 +1,41 @@
+import { Guides } from '@/components/Guides'
+import { Resources } from '@/components/Resources'
+import { HeroPattern } from '@/components/HeroPattern'
+
+export const metadata = {
+  title: "小肚肚肚肚肚哦's Blog",
+  description:
+    '小肚肚肚肚肚哦的博客~~分享前端技巧和生活日常',
+}
+
+<HeroPattern />
+
+# Home
+
+我的个人主页，分享前端技巧和生活日常~~ 因为用英文不会写，所以用中文写的。
+
+主职前端，主要分享工作中前端相关的技术知识；此外还有服务端、算法、图像处理、生活小技巧等文章分享。
+
+
+<div className="not-prose mb-16 mt-6 flex gap-3">
+  <Button href="/quickstart" arrow="right">
+    <>Quickstart</>
+  </Button>
+  <Button href="/sdks" variant="outline">
+    <>Explore SDKs</>
+  </Button>
+</div>
+
+## Getting started {{ anchor: false }}
+
+To get started, create a new application in your [developer settings](#), then read about how to make requests for the resources you need to access using our HTTP APIs or dedicated client SDKs. When your integration is ready to go live, publish it to our [integrations directory](#) to reach the Protocol community. {{ className: 'lead' }}
+
+<div className="not-prose">
+  <Button href="/sdks" variant="text" arrow="right">
+    <>Get your API key</>
+  </Button>
+</div>
+
+<Guides />
+
+<Resources />
