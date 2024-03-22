@@ -1,0 +1,416 @@
+# React Router v6 官方文档翻译 （二） ---- FAQs
+
+> 专栏说明：对于react-router v6版本，有同事反应缺少相对完整的中文文档，查看不方便。为了便于使用，作者对[官网文档](https://reactrouter.com/docs/en/v6)进行针对性翻译，便于v6版本更广泛的被使用。
+
+上一篇：[# React Router v6 官方文档翻译 （一） ---- Installation && Quick Start](https://juejin.cn/post/7100479939694034952)
+
+## 1. 问答环节
+
+> 原文路径：https://reactrouter.com/docs/en/v6/getting-started/faq#faqs
+
+下面是大家在使用`React Router v6`时经常问到的问题。
+
+### 1. 当我用的是类式组件，又必须使用Router时，我应该怎么做？
+
+React Router v6版本不再支持`withRouter`。当使用类式React组件时，不能够使用hooks，然而在React Router v6中都是用hooks函数来共享路由状态，但这并不意味着类式组件不能使用React Router v6。此时你需要写一个自己的`withRouter`封装函数（React16.8+）：
+
+```tsx
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
+
+function withRouter(Component) {
+  function ComponentWithRouterProp(props) {
+    let location = useLocation();
+    let navigate = useNavigate();
+    let params = useParams();
+    return (
+      <Component
+        {...props}
+        router={{ location, navigate, params }}
+      />
+    );
+  }
+
+  return ComponentWithRouterProp;
+}
+```
+
+### 2. 为什么`<Route>`标签用`element`属性替代`render`和`component`？
+
+在React Router v6中，我们把v5中`<Route component>`和`<Route render>`两个API用`<Route element>`替换，主要原因有如下几点：
+
+1. 对于初学者，肯定会经常使用组件懒加载`<Suspense fallback={<Spinner />}>`，这个API里，fallback就是一个`React element`，我们之所以这么设计，就是为了让初学者能够更容易. 更平滑的使用渲染函数。
+
+2. （官网说的比较复杂，我总结一下）v5版本中，`<Route component>`不能传递props，想要传递组件参数，就需要使用`<Route render>`，这就导致了v4/v5的渲染API体量会更大一些，下面是例子：
+
+```jsx
+// 哦吼，看起来是个不错的写法！
+<Route path=":userId" component={Profile} />
+
+// 但是呢，我怎么给 <Profile> 传递 props 呢??
+// Hmm, 我还得用另外一种方式：render
+<Route
+  path=":userId"
+  render={routeProps => (
+    <Profile routeProps={routeProps} animate={true} />
+  )}
+/>
+
+// 所以，在v5版本中有两种路由组件渲染方式 :/
+
+// 但是还有一种情况，关于所有URL都不能匹配的404情况呢？
+// 或许还可以使用children方法
+<Route
+  path=":userId"
+  children={({ match }) => (
+    match ? (
+      <Profile match={match} animate={true} />
+    ) : (
+      <NotFound />
+    )
+  )}
+/>
+
+// 如果想要拿到路由的匹配 或者 想在嵌套路由比较深层的地方来一个路由跳转呢？
+function DeepComponent(routeStuff) {
+  // 啊，复杂的实现~
+}
+export default withRouter(DeepComponent);
+
+// 以上是列举的作者能想到的使用情况。
+```
+
+React本身不提供任何获取`<Route>`信息的方式， 所以我们必须发明一种既能获取Route信息，又能获取自定义props的方式。庆幸的是，hooks的出现，可以替代之前的`component`. `render`和高阶组件。再看看针对以上情况，v6是怎么实现的：
+
+```jsx
+// 就像React原生的 <Suspense> 那样使用路由组件!
+// 不需要额外增加学习任务.
+<Route path=":userId" element={<Profile />} />
+
+// 我们来传递自己的props
+<Route path=":userId" element={<Profile animate={true} />} />
+
+// 获取路由参数和路由定位信息
+function Profile({ animate }) {
+  let params = useParams();
+  let location = useLocation();
+}
+
+// 路由嵌套深层的组件进行跳转
+function DeepComponent() {
+  // 一个hooks搞定！
+  let navigate = useNavigate();
+}
+```
+
+另外说一下，v6中不使用`children`，还有个原因，v6在嵌套路由中已经将children作为内部保留关键字了，这里就不能再用了：[嵌套路由](https://reactrouter.com/docs/en/v6/getting-started/overview#nested-routes)
+
+### 3. v6如何定义404页面
+
+在v4中，来我们需要定义一个路由之外的path，v5中可以使用`path="*"`，v6中沿用v5的用法，不过更简洁：
+
+```jsx
+<Route path="*" element={<NoMatch />} />
+```
+
+### 4. 为什么我的`<Route>`不渲染？好气！
+
+在v5中，`<Route>`组件就是一个普通的React组件，URL没有匹配到的时候，就会像是if语句没有覆盖到一样，不会渲染；在v6中，`<Route>`元素并没有真正的渲染出来，他只是一个配置。我们来举例对比一下：
+
+v5中，`<Route>`就是一个组件，当匹配到路径`/my-route`时，`MyRoute`组件就会被渲染出来：
+```jsx
+let App = () => (
+  <div>
+    <MyRoute />
+  </div>
+);
+
+let MyRoute = ({ element, ...rest }) => {
+  return (
+    <Route path="/my-route" children={<p>Hello!</p>} />
+  );
+};
+```
+
+v6中，你要再这样写就渲染不出来了：
+```jsx
+// ERROR !!!
+let App = () => (
+  <Routes>
+    <MyRoute />
+  </Routes>
+);
+
+let MyRoute = () => {
+  // <Routes>可看不到你这里边配置的path
+  return (
+    <Route path="/my-route" children={<p>Hello!</p>} />
+  );
+};
+```
+v6的正确写法应该遵循两个原则：
+
+1. 在`<Routes>`中只放置`<Route>`
+
+2. 把需要渲染的都放到`element`中
+
+示例：
+
+```jsx
+let App = () => (
+  <div>
+    <Routes>
+      <Route path="/my-route" element={<MyRoute />} />
+    </Routes>
+  </div>
+);
+
+let MyRoute = () => {
+  return <p>Hello!</p>;
+};
+```
+
+使用`<Routes>`来静态地配置全局路由，能够发挥出v6更多的特性。我们也鼓励开发者将所有`<Route>`都放到一个`<Routes>`来配置路由。如果你真的想要个性化的匹配独立URL的组件，你可以像下面这样书写：
+
+```jsx
+function MatchPath({ path, Comp }) {
+  let match = useMatch(path);
+  return match ? <Comp {...match} /> : null;
+}
+
+// 匹配任何地方的组件，不一定有 <Routes> 包裹
+<MatchPath path="/accounts/:id" Comp={Account} />;
+```
+
+### 5. 路由树构建的迁移工作
+
+在v5版本中，你可以使用`<Route>`和`<Switch>`标签来处理路由嵌套问题：
+
+```jsx
+// 路由树顶部
+<Switch>
+  <Route path="/users" component={Users} />
+</Switch>;
+
+// 路由树中某个地方
+function Users() {
+  return (
+    <div>
+      <h1>Users</h1>
+      <Switch>
+        <Route path="/users/account" component={Account} />
+      </Switch>
+    </div>
+  );
+}
+```
+
+v6中的使用基本类似，将`Switch`换成`Routes`。不过需要注意以下两点：
+
+1. 在父路由的path配置中，需要加入`/*`来匹配element中配置的子路由
+
+2. 嵌套路由中不需要获取完整的路径，v6支持相对路径
+
+示例：
+```jsx
+// 顶层路由
+<Routes>
+  <Route path="/users/*" element={<Users />} />
+</Routes>;
+
+// 路由树中某个地方
+function Users() {
+  return (
+    <div>
+      <h1>Users</h1>
+      <Routes>
+        <Route path="account" element={<Account />} />
+      </Routes>
+    </div>
+  );
+}
+```
+
+另，在v5中如果有游离的`<Route>`，在迁移时需要用`<Routes>`包裹：
+```jsx
+// v5
+<Route path="/contact" component={Contact} />
+
+// v6
+<Routes>
+  <Route path="contact" element={<Contact />} />
+</Routes>
+```
+
+### 6. v6还能使用正则匹配吗？
+
+v6中已经移除了正则匹配~~ 有以下两个原因：
+
+1. 正则路由在使用中造成了很多优先级匹配的问题，因为正则是没有优先级这个概念的
+
+2. 正则匹配的依赖包太大了，如果再放回来，v6的体积会增加1/2（即正则占用1/3）
+
+在调研过大量的用例后，我们发现，完全可以规避掉直接使用正则来匹配路由。所以，再三权衡之下，我们做了这个重要的删减，来缩小React Router的体积和规避已知的优先级问题。
+
+一般来说，正则路由仅仅是用来匹配一个URL字符串片段，实现如下功能：
+
+1. 匹配多个静态值
+举例（v5）：
+```jsx
+// v5-lang-route.js
+function App() {
+  return (
+    <Switch>
+      <Route path={/(en|es|fr)/} component={Lang} />
+    </Switch>
+  );
+}
+
+function Lang({ params }) {
+  let lang = params[0];
+  let translations = I81n[lang];
+  // ...
+}
+```
+这些字符串都是静态写入的路径，在v6中，完全可以用三个`Route`代替，如果有很多要匹配的，放在数组里来个遍历就行：
+```jsx
+// v6-lang-route.js
+function App() {
+  return (
+    <Routes>
+      <Route path="en" element={<Lang lang="en" />} />
+      <Route path="es" element={<Lang lang="es" />} />
+      <Route path="fr" element={<Lang lang="fr" />} />
+    </Routes>
+  );
+}
+
+function Lang({ lang }) {
+  let translations = I81n[lang];
+  // ...
+}
+```
+
+2. 校验参数（比如是不是number类型）
+
+举例（v5）：
+```jsx
+// v5-userId-route.js
+function App() {
+  return (
+    <Switch>
+      <Route path={/users/(\d+)/} component={User} />
+    </Switch>
+  );
+}
+
+function User({ params }) {
+  let id = params[0];
+  // ...
+}
+```
+在v6中需要做一点微量的工作来实现这种校验：
+```jsx
+// v6-userId-route.js
+function App() {
+  return (
+    <Routes>
+      <Route path="/users/:id" element={<ValidateUser />} />
+      <Route path="/users/*" element={<NotFound />} />
+    </Routes>
+  );
+}
+
+function ValidateUser() {
+  let params = useParams();
+  let userId = params.id.match(/\d+/);
+  if (!userId) {
+    return <NotFound />;
+  }
+  return <User id={params.userId} />;
+}
+
+function User(props) {
+  let id = props.id;
+  // ...
+}
+```
+
+在v5中，如果正则路由不能匹配任何一个URL时，`<Switch>`会尝试匹配接下来的路由：
+```jsx
+// v5-switch.js
+function App() {
+  return (
+    <Switch>
+      <Route path={/users/(\d+)/} component={User} />
+      <Route path="/users/new" exact component={NewUser} />
+      <Route
+        path="/users/inactive"
+        exact
+        component={InactiveUsers}
+      />
+      // 'users/abc' 会匹配到这里
+      <Route path="/users/*" component={NotFound} />
+    </Switch>
+  );
+}
+```
+
+在v6中就不用担心这种问题，在下边的例子中，由于v6的精确匹配机制，`:userId`会优先被匹配掉，校验的工作是在匹配到之后在子组件内进行的，而不是通过校验来匹配。
+```jsx
+// v6-ranked.js
+function App() {
+  return (
+    <Routes>
+      // '/users/123', '/users/abc' 都会匹配到
+      <Route path="/users/:id" element={<ValidateUser />} />
+      // '/users/new' 才能匹配到
+      <Route path="/users/new" element={<NewUser />} />
+      <Route
+        path="/users/inactive"
+        element={<InactiveUsers />}
+      />
+    </Routes>
+  );
+}
+```
+
+事实上， 如果使用者没有按照正确的顺序布局自己的路由时，v5中确实会存在路由优先级错乱的问题。v6引入了精准匹配解决了这个问题。
+
+<hr />
+
+如果你是用的是`Remix`，在路由没有匹配到时，你可以返回带`40x`状态码的Loader，由于Loader运行在服务端，所以这将会减少前端代码打包的体积：
+```jsx
+// remix-useLoaderData.js
+import { useLoaderData } from "remix";
+
+export async function loader({ params }) {
+  if (!params.id.match(/\d+/)) {
+    throw new Response("", { status: 400 });
+  }
+
+  let user = await fakeDb.user.find({
+    where: { id: params.id },
+  });
+  if (!user) {
+    throw new Response("", { status: 404 });
+  }
+
+  return user;
+}
+
+function User() {
+  let user = useLoaderData();
+  // ...
+}
+```
+
+不同于直接渲染组件，remix会渲染最近的[catch boundary](https://remix.run/docs/en/v1/api/conventions#catchboundary)。
+
+<hr />
+
+FAQs finished !
+

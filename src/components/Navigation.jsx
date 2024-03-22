@@ -76,7 +76,7 @@ function VisibleSectionHighlight({ group, pathname }) {
     ),
   )
   let itemHeight = remToPx(2)
-  let height = 2 * itemHeight
+  let height = (visibleSections.length > 1 ? 2 : 1) * itemHeight
   let top =
     group.links.findIndex((link) => link.href === pathname) * itemHeight +
     firstVisibleSectionIndex * itemHeight
@@ -117,7 +117,6 @@ function NavigationGroup({ group, className }) {
     [usePathname(), useSectionStore((s) => s.sections)],
     isInsideMobileNavigation,
   )
-
   let isActiveGroup =
     group.links.findIndex((link) => link.href === pathname) !== -1
 
@@ -145,8 +144,8 @@ function NavigationGroup({ group, className }) {
           )}
         </AnimatePresence>
         <ul role="list" className="border-l border-transparent">
-          {group.links.map((link) => (
-            <motion.li key={link.href} layout="position" className="relative">
+          {group.links.map((link) => {
+            return <motion.li key={link.href} layout="position" className="relative">
               <NavLink href={link.href} active={link.href === pathname}>
                 {link.title}
               </NavLink>
@@ -179,7 +178,7 @@ function NavigationGroup({ group, className }) {
                 )}
               </AnimatePresence>
             </motion.li>
-          ))}
+          })}
         </ul>
       </div>
     </li>
@@ -191,27 +190,24 @@ export const navigation = [
     title: 'Blogs',
     links: [
       // { title: 'Introduction', href: '/' },
-      { title: 'Quickstart', href: '/quickstart' },
-      // { title: 'SDKs', href: '/sdks' },
-      // { title: 'Authentication', href: '/authentication' },
-      // { title: 'Pagination', href: '/pagination' },
-      // { title: 'Errors', href: '/errors' },
-      // { title: 'Webhooks', href: '/webhooks' },
+      { title: '前端工程化', href: '/posts/engineering' },
+      { title: '组件库 UI', href: '/posts/UI' },
+      { title: 'CSS探索', href: '/posts/css' },
+      { title: '算法', href: '/posts/algorithm' },
+      { title: 'react router v6 官网解读', href: '/posts/react-router-6' },
+      { title: '微前端 monto-app', href: '/posts/monto-app' },
     ],
   },
   {
     title: '资源',
     links: [
-      // { title: 'Contacts', href: '/contacts' },
-      // { title: 'Conversations', href: '/conversations' },
-      // { title: 'Messages', href: '/messages' },
-      // { title: 'Groups', href: '/groups' },
-      // { title: 'Attachments', href: '/attachments' },
     ],
   },
   {
     title: '日常',
-    links: []
+    links: [
+      { title: '2023-12', href: '/dailys/2023-12' },
+    ]
   }
 ]
 
@@ -219,8 +215,8 @@ export function Navigation(props) {
   return (
     <nav {...props}>
       <ul role="list">
-        <TopLevelNavItem href="/">配色方案</TopLevelNavItem>
-        <TopLevelNavItem href="#">主题切换</TopLevelNavItem>
+        <TopLevelNavItem href="https://duheng1992.github.io/monto-color/">配色方案</TopLevelNavItem>
+        <TopLevelNavItem href="https://dh1992.gitee.io/dux-ui-react/">DUX UI</TopLevelNavItem>
         <TopLevelNavItem href="#">微服务框架</TopLevelNavItem>
         {navigation.map((group, groupIndex) => (
           <NavigationGroup

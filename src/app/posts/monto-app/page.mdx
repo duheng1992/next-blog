@@ -1,0 +1,48 @@
+export const metadata = {
+  title: 'monto-app 微前端',
+  description:
+    '小肚教你快速上手 monto-app',
+}
+
+
+import { Guides } from '@/components/Guides'
+
+## 微前端方案 {{ tag: 'micro frontend', label: '方案探究', id: 1 }}
+
+<Guides guides={[
+  {
+    href: '/posts/monto-app/monto-app-iframe-1',
+    name: 'iframe 方案',
+    description: '前端微服务 iframe 方案初版',
+  },
+  {
+    href: '/posts/monto-app/monto-app-npm-1',
+    name: 'MPN 方案',
+    description: '前端微服务 NPM 方案初版',
+  },
+  {
+    href: '/posts/monto-app/monto-app-dym-script-1',
+    name: '动态 script 方案',
+    description: '前端微服务动态 script 方案初版',
+  },
+  {
+    href: '/posts/monto-app/monto-app-web-component',
+    name: 'Web Components 方案',
+    description: '前端微服务 Web Components 方案初版',
+  }
+]} />
+
+## js 沙箱实践 {{ tag: 'js sandbox', label: '沙箱设计', id: 2 }}
+
+<Guides guides={[
+  {
+    href: '/posts/monto-app/monto-app-sandbox-webcomponents-iframe',
+    name: 'js 沙箱：Web Components 与 iframe隔离',
+    description: '在 iframe 中使用 web component 注入'
+  },
+  {
+    href: '/posts/monto-app/monto-app-sandbox-snapshot-script',
+    name: 'js 沙箱：自执行 Script 与 快照隔离',
+    description: '简单的快照复制，并执行各自的隔离脚本'
+  }
+]} />

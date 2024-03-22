@@ -1,0 +1,342 @@
+#  手把手搭建基于React的前端UI库 （五）-- 基础表单组件
+
+## 1. 前言
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;由于疫情原因，被封闭在家中比较烦躁，拖了好久才开始续写UI篇的文章，抱歉。本篇是React组件库的第5篇文章，我们来实现一下Form表单的功能。本文的代码展示的是主要的核心代码，全部代码见仓库：[Gitee仓库](https://gitee.com/dh1992/dux-ui-react/)。另，我已部署了本组件库的文档地址，还请批评指正：https://dh1992.gitee.io/dux-ui-react
+
+
+## 2. Input
+   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Input作为最基本的HTML表单组件，肯定是组件库中必不可少的一个组件，同时也是实现起来相对简单的，H5本身就自带了`input`标签，我们只需要在其基础上自定义自己的样式，并且实现一些事件监听即可。
+   
+   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;我们先确定Input要接受的props有哪些。首先输入框肯定要有值，还要能禁用和清除，同时变化还要有检测事件，主要的参数我罗列一下：
+   
+| 属性 | 描述 |
+| --- | --- |
+| value | 受控值 |
+| prefix | 前缀 |
+| suffix | 后缀 |
+| clearable | 是否可清空 |
+| size | 尺寸 |
+| disabled | 是否禁用 |
+| onClear | 清除事件 |
+| onFocus | 聚焦事件 |
+| onBlur | 失焦事件 |
+| onChange | 变化事件 |
+
+
+   我们在`components`文件夹下，新建`Input`文件夹，并在其下新建`index.tsx`文件：
+   
+   
+```tsx
+...
+const Input = ({size, focused, disabled, customStyle, clearable, value}) => {
+      
+      return <SWrap
+        {...{ size, focused, disabled, customStyle }}
+        empty={!value}
+      >
+        <span className={inputWrapCls}>
+          {renderPrefix}
+          <input
+            {...rest}
+            value={value}
+            onChange={onChange}
+            ref={inputRef}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            disabled={disabled}
+          />
+          {renderClear}
+          {renderSuffix}
+        </span>
+      </SWrap>
+    );
+}
+```
+
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;我用一个`SWrap`组件包裹了原生的inpu标签，接受用户传入的props属性。看一下SWrap是怎么实现的，仍然是返回一个styleWrap函数，具体的css实现可以看我的源码，这里不多赘述：
+ 
+```tsx
+import styled from '@emotion/styled';
+import { css } from '@emotion/core';
+
+...
+export const SWrap = styleWrap({})(
+  styled.span((props) => {
+    const {
+      theme: { designTokens: DT },
+      disabled,
+      size,
+      focused,
+      clearable,
+      customStyle,
+    } = props;
+
+    return css`
+        /** css实现 */
+        ...
+    `
+  })
+);
+```
+
+我们来看一下每一个属性都是怎么实现其价值的：
+
+### value/disabled/onChange
+通过props属性传入以后直接赋值给input标签：`value={value}`
+
+### prefix/suffix
+前后缀我们通过`renderPrefix/renderSuffix`组件实现，分别放在input的前后：
+
+
+```tsx
+// 如果用户传入了prefix，就返回一个span，加上classname，并给一个onMouseDown的事件，如果不需要这里也可以不要事件。后缀也同前缀一样。
+const renderPrefix = useMemo(() => {
+  return (
+    prefix && (
+      <span className={inputPrefixCls} onMouseDown={onMouseDown}>
+        {prefix}
+      </span>
+    )
+  );
+}, [onMouseDown, prefix]);
+```
+
+### clearable
+clearable是组件自定义的属性，原生input没有自带的清除操作。我们通过后缀组件前边的`renderClear`组件实现:
+
+
+```tsx
+// 其实与前后缀实现方式一样，不同的是content是固定的一个Icon，并强制赋予handleClear事件
+const renderClear = useMemo(() => {
+  if (clearable) {
+    return (
+      <span className={clearCls} onClick={handleClear} onMouseDown={onMouseDown}>
+        <Icon type="remove_sign" />
+      </span>
+    );
+  }
+}, [clearable, handleClear, onMouseDown]);
+
+// 清除value事件
+const handleClear = useCallback(
+  (e) => {
+    if (disabled) return;
+    onClear();
+    const input = inputRef.current;
+    if (!input) return;
+    e.target = input;
+    e.currentTarget = input;
+    const cacheV = input.value;
+    input.value = '';
+    onChange(e);
+    input.value = cacheV;
+  },
+  [disabled, onChange, onClear],
+);
+```
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;我们设定的清除事件执行顺序是先执行用户传入的`onClear`，之后缓存value，然后拿到Input标签的ref，设置其value是空字符串，并将当前点击事件的target给Input，调用`onChange`返给用户。**注意最后一行**，要重新把input的value赋值回缓存的原值，因为这里并没有任何setState的操作，不应该改变原来的值。用一个onChange事件间隔一下，value值在一个渲染周期内不会渲染两次，所以就造成了被清空的假象。至于清空数据的真实操作，应该放在onChange中。
+ 
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;至此，Input组件的功能实现已经介绍完毕。以此类推，数字输入框`NumberInput`，只需要在左右两侧个加一个Button来控制增减，在`onBlur`事件中需要通过正则校验是否为合法的数字即可；文本域`Textarea`完全可以参照Input，将原生标签换成textarea即可。
+  
+## 3. Radio
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;H5的input标签虽然有radio属性，但是一般组件库就不太会直接使用了，一方面是原生的方法往往不能满足组件库的需求，另一方面，不想原始的Input输入框，原生标签不能做到组件库需要的样式定制和主题定制。比如我们自定义的radio组件，可以有原生样式，也可以有card模式，而且radio往往都不是一个单独存在，至少得有两个才能满足要求。我们先来定义一下`props`：
+  
+  | 属性 | 描述 |
+| --- | --- |
+| checked        | 是否选中                                                        | 
+| defaultChecked | 默认是否选中                                                      | 
+| disabled       | 是否禁用                                                        | 
+| onChange       | 点选时的回调                                                      | 
+| value          | radio的值                                                     | 
+| styleType      | 样式风格, 可选 'default', 'button', 'tag', 'card', 'text', 'list' | 
+| size           | 尺寸，可选'sm', 'md', 'lg'，styleType 为 card. list 时无效             | 
+| title          | 标题，styleType 为 card 时使用                                     | 
+
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;接下来在`src/components`下新建文件夹`Radio`，并在其中新建`index.tsx`：
+ 
+ 
+```tsx
+...
+renderRadioList(props: any) {
+    /* eslint-disable no-unused-vars */
+    const {
+      children,
+      checked,
+      onChange,
+      onClick,
+      disabled,
+      ...rest
+    } = props;
+    /* eslint-enable no-unused-vars */
+
+    return (
+      <RadioListWrap
+        checked={checked}
+        disabled={disabled}
+        {...rest}
+        onClick={(...args: any) => this.onClick(props, { ...args })}
+      >
+        <RadioIcon checked={checked} disabled={disabled} />
+        {children != null && <span className={contentCls}>{children}</span>}
+      </RadioListWrap>
+    );
+}
+```
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`RadioListWrap`仍然是用`styleWrap`包裹的包含样式的div，内容物我们放一个图标`RadioIcon`接收最重要的属性`checked`，后边用一个span包裹传入的children，使用时可以这样写：
+ 
+ ```tsx
+ <Radio checked>checked</Radio>
+ ```
+ 组件`RadioIcon`内部放一个实心圆形的Icon，`SIconWrap`仍然是一个div：
+ 
+ 
+```tsx
+const RadioIcon = (props: { checked?: boolean; disabled?: boolean }) => {
+  return (
+    <SIconWrap {...props}>
+      <Icon className={iconCls} type="whitecircle" />
+    </SIconWrap>
+  );
+};
+```
+
+在`SIconWrap`样式定义里，通过判断是否checked来控制样式高亮：
+
+
+```tsx
+${checked &&
+  css`
+    // checked时，SIconWrap加一个主题色的边框
+    &.${iconWrapCls} {
+      color: ${DT.T_COLOR_LINE_PRIMARY_DEFAULT};
+      border-color: ${DT.T_COLOR_LINE_PRIMARY_DEFAULT};
+    }
+    // checked时，Icon字体加上主题色
+    .${iconCls} {
+      visibility: visible;
+      opacity: 1;
+      fill: ${DT.T_COLOR_TEXT_PRIMARY_DEFAULT};
+    }
+`}
+```
+
+基本结构讲解完了，我们来看加上样式美化后的效果：
+
+![image.png](/images/2022-5-22/2022-5-22-1.png)
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;可以看到，除了模拟原生样式外，还可以模拟按钮. 标签和列表样式，实现方式同上，只需要将`RadioWrap`内的Icon替换成其他的组件即可。
+
+>  表单组件比较多，这里只是讲述了基本的几个实现，为写表单组件提供一个思路，更多组件可以参见[组件库主页](https://dh1992.gitee.io/dux-ui-react/)
+
+
+## 4. Form
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;讲完基础表单组件，我们实现一下表单组件的布局，就叫`Form`。H5原生的组件是有form的，我们这里需要用到其submit方法，所以就使用原生的form，并对其进行样式封装。
+  
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;表单容器，必须有一个根组件Form，内部有至少一个formitem，每一个formitem内包含一个基础表单输入组件，定义不同的name。在`src/components`下新建`Form`文件夹，并在其下新建`Form.tsx`,`Item.tsx`。先看`Form.tsx`：
+  
+  
+```tsx
+const Form = ({ onSubmit, ...rest }: any) => {
+  const { preventFormDefaultAction } = useContext(ConfigContext);
+  const handleSubmit = React.useCallback(
+    (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      onSubmit && onSubmit(e);
+    },
+    [onSubmit],
+  );
+  return (
+      <FormWrap onSubmit={preventFormDefaultAction ? handleSubmit : onSubmit} {...rest} />
+  );
+};
+```
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;表单容器，必须有一个根组件Form用于容纳所有的输入元素，触发原生的submit事件；内部children有至少一个formitem，每一个formitem内包含一个基础表单输入组件，定义不同的name，formitem应该遵循左右布局格式，使用float或者flex都可以实现。我们看传入的参数`onSubmit`，在组件`FormWrap`的回调onSubmit中调用。我们来看一下`FormWrap`，他返回的就是一个加了样式的原生form标签：
+  
+  
+```tsx
+export const FormWrap = styleWrap<{ size: string }>({
+  className: prefixCls,
+})(
+  styled('form')((props) => {
+
+    return css`
+      font-size: 12px;
+
+      // 给下属的每一个item加样式
+      .${itemCls} {
+        margin-bottom: 16px;
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+    `;
+  }),
+);
+
+```
+
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;我们再来看内容物`Item.tsx`的实现：
+  
+  
+```tsx
+...
+return (
+    <ItemWrap>
+      <LabelWrap {...labelCol}>
+        {label}
+        {required && <RequiredLabel>*</RequiredLabel>}
+        {help && <CommentWrap>{help}</CommentWrap>}
+      </LabelWrap>
+      <ControllerWrap {...controllerCol}>
+        {children}
+        <RenderTip tip={tip} status={status} />
+      </ControllerWrap>
+    </ItemWrap>
+);
+```
+  
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`ItemWrap`，`LabelWrap`，`ControllerWrap`，用于表单条目左右布局的实现：
+  
+  ```tsx
+// ItemWrap 使用12栅格布局
+export const ItemWrap = styleWrap<{ size: string }>({
+  className: prefixCls,
+})(
+    styled('form')((props) => {
+
+    return css`
+      font-size: 12px;
+      display: flex;
+
+      // 给下属的每一个label加样式，样式类名从LabelWrap获取
+     .${prefixCls} > .${itemLabelCls} {
+        flex: ${props.labelCol.span || 6}
+      }
+      
+      // 给下属的每一个controller受控区域加样式，样式类名从ControllerWrap获取
+     .${prefixCls} > .${itemControllerCls} {
+        flex: ${props.controllerCol.span || 6}
+      }
+    `;
+  }),
+);
+
+```
+  
+   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;我们来看看放组件后的效果（主页demo）：
+   
+![image.png](/images/2022-5-22/2022-5-22-2.png)
+
+
+
+   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;总结一下，表单组件需要放在原生form标签内，使用栅格布局，左侧放置label，右侧放置具体的输入组件；本文章介绍了Input和Radio如何来封装，其他组件也都是大同小异，由于篇幅限制，读者可以去主页查看效果或者自己去npm安装一下实施效果（相关配置可查看源码README）：
+```
+npm install --save dux-ui
+```
+   
+<hr />
+

@@ -1,0 +1,33 @@
+export const metadata = {
+  title: '前端工程化',
+  description:
+    '小肚教你快速学习前端工程化',
+}
+
+
+import { Guides } from '@/components/Guides'
+
+## 工程化基础 {{ tag: '前端工程化', label: '前端基础知识', id: 1 }}
+
+<Guides guides={[
+  {
+    href: '/posts/engineering/fe-prepare',
+    name: '前端环境搭建',
+    description: '小肚教你快速搭建前端开发环境',
+  },
+  {
+    href: '/posts/engineering/select-frame',
+    name: '前端技术选型',
+    description: '关于前端产品技术选型问题的若干思考',
+  },
+  {
+    href: '/posts/engineering/fe-vs-be',
+    name: '前端工程化必经的一环 -- 前后端接口规范',
+    description: '前端 vs 后端',
+  },
+  {
+    href: '/posts/engineering/start-mobx',
+    name: '开始使用 Mobx 吧！',
+    description: '小肚教你快速上手 Mobx',
+  },
+]} />

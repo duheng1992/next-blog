@@ -1,0 +1,293 @@
+# 手把手搭建基于React的前端UI库 （二）-- 主题配置
+
+
+## 1. 前言
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;承接上一篇[手把手搭建基于React的前端UI库 （一）-- 项目初始化](https://juejin.cn/post/7074915729601986567)，如果没有看过项目搭建的，可以点击前边的链接。在dumi项目搭建完毕后，我们着手写一下全局主题配置。
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;本文的代码展示的是主要的核心代码，全部代码见仓库：[Gitee仓库](https://gitee.com/dh1992/dux-ui-react/)
+
+## 2. UI库三要素
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;在决定要写核心组件之前，首先要确定这么几个注意事项：
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`1. Style风格`
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`2. 适配性`
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`3. 内容适应性`
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`Style风格`可以包含组件库的色彩设计，视觉风格设计，字体，动画效果，主题皮肤和一些基础样式的设计等；`适配性`则表示要考虑组件库要运行在什么平台，是PC端还是移动端，或者是兼容其他平台等；`内容适应性`指的是组件包含的功能范围，文案友好度，是否考虑国际化，对开发者是否友好等问题。这些设计风格仁者见仁，在之后的文章中会陆续记录我是如何设计的。
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;基于上述原则，我们可以先从主题色彩入手。
+
+<hr />
+
+## 3. ThemeProvider
+
+Theme和样式自然是属于全局的，我们用一个`provider`来承接。
+
+### ThemeProvider.tsx
+
+在`src/components`下新建一个文件夹`ThemeProvider`，在该文件夹下新建一个文件`ThemeProvider.tsx`：
+
+```tsx
+class ThemeProvider extends Component {
+    ...
+}
+```
+
+
+在`src/components/ThemeProvider/ThemeProvider.tsx`中添加props，其中的theme表示当前的主题：
+
+```tsx
+static propTypes = {
+    /**
+     * 自定义主题
+     */
+    theme: PropTypes.object.isRequired
+};
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;接下来安装一个第三方依赖`emotion-theming`来提供主题化的解决方案，详细配置可查看其[主页](https://emotion.sh/docs/theming#themeprovider-reactcomponenttype)，就当做是一个全局的`context`来管理状态吧。执行指令：
+```sh
+npm i --save emotion emotion-theming @emotion/core @emotion/styled
+```
+
+然后定义构造器和渲染函数：
+```tsx
+import React, { Component } from 'react';
+import _ from 'lodash';
+import PropTypes from 'prop-types';
+import { ThemeProvider as EThemeProvider } from 'emotion-theming';
+
+constructor(props: any) {
+    super(props);
+    const theme = props.theme;
+ 
+    this.state = {
+        theme
+    };
+}
+...
+render() {
+    // eslint-disable-next-line no-unused-vars
+    const { theme: _theme, ...rest } = this.props as any;
+    const { theme } = this.state;
+    return <EThemeProvider theme={theme} {...rest} />;
+}
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;留心的朋友可能会注意到，我这里的state中的theme是写在构造器中的，在挂载的时候只执行一次，如果用户想要切换主题，必然会通过`props`传递新的theme值，我们这里检测props变化：
+
+```tsx
+...
+componentWillReceiveProps(nextProps: any) {
+    const { theme } = nextProps;
+    if (JSON.stringify(theme) !== this.cache) {
+        const mergedTheme = this.getMergedTheme(theme);
+        this.cache = JSON.stringify(theme);
+        this.setState(
+            {
+                theme: mergedTheme
+            },
+        );
+    }
+}
+
+getMergedTheme = (theme: string) => {
+    return generateTheme(theme);
+};
+```
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;可以看到，加了一个本地的缓存`cache`来避免重复变更。其中`generateTheme`是我写的一个增强方法，用于处理前后两个主题对比更新，并加入了一些常用样式，比如`fontSize`等，如果你觉得没必要，那么你直接设置拿到的theme就行了。
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;至此，一个提供主题的provider就写好了，现在来给他增加灵魂：配色。这里我写了两种配色（你也可以自己设计，如果你具备设计师的美学素养和专业知识的话）：`Black`和`White`。
+
+### designTokens.ts
+
+我们在`ThemeProvider.tsx`同目录新建文件`designTokens.ts`来放置默认主题配色：
+
+
+```ts
+/** 默认的主题配色 */
+const designTokens = {
+    ...
+};
+
+export { designTokens };
+```
+具体的配色变量应全大写，以T开头，仅包含字母. 数字. 下划线，由于变量太多，这里给出一部分：
+
+背景色：
+
+![image.png](/images/2022-3-19/2022-3-19-1.png)
+
+多彩色：
+
+![image.png](/images/2022-3-19/2022-3-19-2.png)
+
+
+渐变色池：
+
+![image.png](/images/2022-3-19/2022-3-19-3.png)
+
+
+常用尺寸：
+
+![image.png](/images/2022-3-19/2022-3-19-4.png)
+
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;同理，在相同的目录下，新建文件`dark.ts`, 放入相同的变量，但是色号应该是暗色调的配色，亮色调下的亮色，在暗色调下应该是暗色。比如渐变色池应该是下面这样：
+
+![image.png](/images/2022-3-19/2022-3-19-5.png)
+
+
+这些配色方案，网上也能找到类似的，选择自己喜欢的就行了。
+
+有了这些颜色池，我们写一个方法来获取当前的`designTokens`，还是在同目录下，新建文件`useDesignTokens.ts`：
+
+
+```tsx
+import { useTheme } from 'emotion-theming';
+
+// ../../style中写了几个辅助的样式，对解释原理没有影响，想看全部代码可以去项目仓库查看
+import { defaultTheme, Theme } from '../../style';
+
+const useDesignTokens = () => {
+  // 拿到Themeprovider的theme
+  const theme = useTheme<Theme>();
+  if (!Object.keys(theme).length) return defaultTheme.designTokens;
+  return theme.designTokens;
+};
+
+export default useDesignTokens;
+
+```
+这样，就可以在任何一个地方，通过useDesignTokens拿到当前的主题配色了。
+
+## 4. 反思
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;再回到`ThemeProvider`本身进行思考，总觉得少了点什么。是不是显得功能有点单薄，传值只能传递theme，不够灵活。整个组件库项目要维护的公共变量应该不会只有主题，后来可能还会有国际化什么的，所以，是不是要写一个更通用的Provider来统一处理？
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;我们在`src/components`文件夹下，创建一个新的文件夹`ConfigProvider`，在新创建的文件夹下创建文件`ConfigProvider.tsx`，写上如下代码：
+
+```tsx
+import React, { ReactNode, createContext } from 'react';
+
+import ThemeProvider from '../ThemeProvider';
+
+export interface ConfigProviderProps {
+  /** @ignore */
+  children: ReactNode;
+
+  /** 提供时会使用 ThemeProvider 包裹 */
+  theme?: any;
+}
+
+const ConfigProvider = ({ children, theme, ...rest }: ConfigProviderProps) => {
+
+  const defaultConfig = {};
+  const ConfigContext = createContext<any>(defaultConfig);
+
+  let provider = (
+    <ConfigContext.Provider value={{ ...defaultConfig, ...rest }}>
+      {children}
+    </ConfigContext.Provider>
+  );
+  if (theme) provider = <ThemeProvider theme={theme}>{provider}</ThemeProvider>;
+
+  // 下边可以追加其他情况的Provider ...
+
+  return provider;
+};
+
+export { ThemeProvider };
+export default ConfigProvider;
+```
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;这里，我们使用`createContext`来创建一个context放置全局变量，使用`ConfigContext.Provider`作为基础全局参数，通过拿到的不同参数来动态叠加转换为其他不同的`Provider`。当然，context可以自己再单写一个文件来存储，这里就不赘述了。
+
+## 5. 如何使用
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;为了能够在组件中使用的内置主题色，需要将配置对外暴露出来，在`src/index.ts`文件中删除上一期导入的Foo组件：
+
+<del>`export { default as Foo } from './components/Foo';`</del>
+
+然后加入如下代码：
+
+```ts
+export { default as ThemeDark } from './components/ThemeProvider/dark';
+export { designTokens as ThemeDefault } from './components/ThemeProvider/designTokens';
+export {
+  default as ConfigProvider,
+  ThemeProvider,
+} from './components/ConfigProvider/ConfigProvider';
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;主题配置有了，接下来要怎么用呢？用这个Provider把全局App组件包裹一下吗？如果有个别组件想要定制样式呢？似乎不够灵活，作者认为应该封装一个工具类，在需要配置主题色的组加上使用即可。在`src`目录下新建`style`文件夹用来放置公共的样式配置，在该文件夹下新增文件`styleWrap.tsx`：
+
+```tsx
+// 引入依赖
+import React, { FC, useMemo } from 'react';
+import { useTheme } from 'emotion-theming';
+import defaultTheme from '../components/ThemeProvider/theme';
+
+...
+
+// 新建一个函数
+const styleWrap = () => {
+    ...
+    return Com => {
+        const WithThemeComponent = (props) => {
+
+            ...
+
+            const theme = useTheme();
+
+            const memoTheme = useMemo(
+                () => (!theme || !Object.keys(theme)?.length ? defaultTheme : theme),
+                [theme],
+            );
+
+            const result = {
+                ...props,
+                theme: memoTheme,
+            };
+            ...
+
+            const Com = Comp as unknown as FC;
+            // result中带有theme主题参数，在基础业务组件中应接受并处理
+            return <Com {...result} />;
+        } 
+
+        return WithThemeComponent;
+    }
+}
+
+```
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;可以看到，styleWrap返回的是一个高阶组件WithThemeComponent，在该组件里获取当前主题并使用`useMemo`节省渲染开销，将结果收集到`result`里作为属性传递给基础业务组件`Com`.
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;接下来记录一下`ThemeProvider`在组件中的使用方式：
+
+
+```tsx
+...
+// 1. 引入一种字体
+const [theme, setTheme] = useState(ThemeDark);
+...
+
+// 2. 使用
+<ConfigProvider theme={theme}>
+    // 放置被styleWrap包裹的业务组件
+    ...
+</ConfigProvider>
+
+// 3. 切换主题
+setTheme(designTokens);
+```
+
+
+<hr />
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;本期主题配置的记录到这里就结束了，下一期讲解基础组件`Button`和`Icon`的设计，同时会将主题色应用在这些组件上，为了能够更好地理解基础组件如何处理传入的theme参数，下一期会和本期一起发布，敬请期待~~
+
+

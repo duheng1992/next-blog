@@ -1,0 +1,366 @@
+# React Router v6 官方文档翻译 （七） ---- 内置API
+
+本期讲一下 `React Router v6` 的utils库中的内置方法。本文只在掘金发布。
+
+> 专栏说明：对于react-router v6版本，有同事反映缺少相对完整的中文文档，查看不方便。为了便于使用，作者对[官网文档](https://link.juejin.cn/?target=https%3A%2F%2Freactrouter.com%2Fdocs%2Fen%2Fv6 "https://link.juejin.cn/?target=https%3A%2F%2Freactrouter.com%2Fdocs%2Fen%2Fv6")进行针对性翻译，便于v6版本更广泛的被使用。
+
+
+## 1. createRoutesFromChildren
+
+类型定义：
+
+```ts
+declare function createRoutesFromChildren(
+  children: React.ReactNode
+): RouteObject[];
+
+// 返回值
+interface RouteObject {
+  caseSensitive?: boolean;
+  children?: RouteObject[];
+  element?: React.ReactNode;
+  index?: boolean;
+  path?: string;
+}
+```
+`createRoutesFromChildren` 通常在 `<Route>` 子元素中使用，用于生成子 route 的配置项。可以把 `<Route>` 类型的 react element 对象，变成了普通的 route 对象结构。其内部通过 React.Children.forEach 把 Route 组件给结构化，并且内部调用递归，深度递归 children 结构。
+
+示例：
+
+输入
+```js
+<Routes> 
+    <Route element={<Home />} path="/home" /> 
+    <Route element={<List/>} path="/list" /> 
+    <Route element={<Layout/>} path="/children" > 
+        <Route element={<Child1/>} path="/children/child1" /> 
+        <Route element={<Child2/>} path="/children/child2" /> 
+    </Route> 
+</Routes>
+```
+输出
+
+![1](/images/2022-9-19/2022-9-19-1.png)
+
+## 2. createSearchParams
+
+类型定义：
+
+
+```ts
+declare function createSearchParams(
+  init?: URLSearchParamsInit
+): URLSearchParams;
+```
+
+`createSearchParams` 通常与 `useSearchParams` 配对使用，用于 search 传参时构建参数。
+
+示例：
+
+```js
+// 传参方式 1
+navigate({
+    pathname: "/class",
+    search: `?id=${id}&grade=${grade}`
+})
+
+// 传参方式 2
+const params = { id: '1', grade: '2' };
+navigate({
+    pathname: "/class",
+    search: `?${createSearchParams(params)}`
+})
+```
+
+## 3. generatePath
+
+类型定义：
+
+```ts
+declare function generatePath(
+  path: string,
+  params?: Params
+): string;
+```
+
+动态生成可跳转的 path， 可自动匹配并填充动态参数。
+
+示例：
+```js
+generatePath("/users/:id", { id: "42" }); // "/users/42"
+generatePath("/files/:type/*", {
+  type: "img",
+  "*": "cat.jpg",
+}); // "/files/img/cat.jpg"
+```
+
+## 4. Location
+
+React Router 中 "location" 的接口定义。
+
+## 5. matchPath
+
+类型定义：
+```ts
+declare function matchPath<
+  ParamKey extends string = string
+>(
+  pattern: PathPattern | string,
+  pathname: string
+): PathMatch<ParamKey> | null;
+
+interface PathMatch<ParamKey extends string = string> {
+  params: Params<ParamKey>;
+  pathname: string;
+  pattern: PathPattern;
+}
+
+interface PathPattern {
+  path: string;
+  caseSensitive?: boolean;
+  end?: boolean;
+}
+```
+
+比较常用的函数。是hook `[useMatch](https://reactrouter.com/en/main/hooks/use-match)` 的补充，用于非函数式组件中。
+
+示例：
+
+```js
+matchPath('/children/child1/:id', '/children/child1/1') 
+```
+![2](/images/2022-9-19/2022-9-19-2.png)
+个人觉得没啥用的方法，你都知道传入 pathname 了，还匹配个der。
+
+---
+P.S. 2023年2月追加
+
+我错了！！今天遇到一个问题，再写一个面包屑导航的时候，匹配带有路径参数的路由进行选择性高亮，还真得使用 matchPath，省的自己写正则校验了：
+
+![3](/images/2022-9-19/2022-9-19-3.png)
+
+(蓝色是location.pathname，红色是遍历 Menu配置拿到的url，绿色是matchPath返回的，若不是null则表示匹配到了！)
+
+## 6. matchRoutes
+
+类型定义：
+```ts
+declare function matchRoutes(
+  routes: RouteObject[],
+  location: Partial<Location> | string,
+  basename?: string
+): RouteMatch[] | null;
+
+interface RouteMatch<ParamKey extends string = string> {
+  params: Params<ParamKey>;
+  pathname: string;
+  route: RouteObject;
+}
+```
+
+这个是v6版匹配路由的核心算法，官方暴露出来了，供开发者自定义使用。
+
+示例：
+
+```js
+const routes = [
+  {
+    path: '/',
+    component: <Home />
+  },
+  {
+    path: '/list',
+    component: <List />
+  },
+  {
+    path: '/children',
+    component: <Layout />,
+    children: [
+      {
+        path: 'child1',
+        component: <Child1 />
+      },
+      {
+        path: 'child2/:id',
+        component: <Child2 />
+      },
+    ]
+  }
+]
+...
+
+<BrowserRouter>
+  <Routes>
+      {routes.map((route, index) => <Route key={index} element={route.component} path={route.path} >
+        {route.children && <>
+          {route.children.map((cRoute, cIndex) => <Route key={cIndex} element={cRoute.component} path={cRoute.path} />)}
+        </>}
+      </Route> )}
+  </Routes>
+</BrowserRouter>
+
+matchRoutes(routes, '/children/child1')
+```
+
+![4](/images/2022-9-19/2022-9-19-4.png)
+可以看到， matchRoutes 将所有的匹配路径上的路由都按照顺序返回啦。可以通过 route.path 来获取原始路由表中的 path。
+
+
+## 7. renderMatches
+
+类型定义：
+```ts
+declare function renderMatches(
+  matches: RouteMatch[] | null
+): React.ReactElement | null;
+```
+
+它的作用是把 matchRoutes 匹配到的 component 渲染出来。说的容易，网上的使用案例少之又少，官方文档又太过敷衍，只能去读源码了：
+
+```tsx
+// react-router/packages/lib/hooks.tsx
+export function _renderMatches(
+  matches: RouteMatch[] | null,
+  parentMatches: RouteMatch[] = []
+): React.ReactElement | null {
+  if (matches == null) return null;
+
+  return matches.reduceRight((outlet, match, index) => {
+    return (
+      <RouteContext.Provider
+        children={
+          match.route.element !== undefined ? match.route.element : outlet
+        }
+        value={{
+          outlet,
+          matches: parentMatches.concat(matches.slice(0, index + 1)),
+        }}
+      />
+    );
+  }, null as React.ReactElement | null);
+}
+```
+可以看到，它是将匹配到的路由数组从右向左摘取，统一放到一个 context 里了。而且，从源码里看到，useRoutes 的返回值就是一个 _renderMatches，我们可以参照源码的调用方式进行使用。
+
+考虑路由：
+
+```js
+const routes = [
+    {
+      path: '/',
+      component: <Home />
+    },
+    {
+      path: '/list',
+      component: <List />
+    },
+    {
+      path: '/children',
+      component: <Layout />,
+      children: [
+        {
+          path: 'child1',
+          component: <Child1 />
+        },
+        {
+          path: 'child2/:id',
+          component: <Child2 />
+        },
+      ]
+    },
+  ]
+```
+
+使用方式：
+
+```js
+renderMatches(matchRoutes(routes, '/children/child2/1'))
+```
+matchRoutes 返回的值是：
+
+![5](/images/2022-9-19/2022-9-19-5.png)
+与 _renderMatches 接受的参数一致。
+
+在 matches.reduceRight 中，会将 match.route.element 通过 context 的 children 的形式挂载。不知道是不是开发者的笔误，children 里使用了 match.route.element，而上图中匹配的数组明明是 route.component，导致直接使用渲染不出来任何数据，我改动一下这个函数就有数据了：
+
+```jsx
+const Context = createContext({});
+
+const matches = matchRoutes(routes, '/children/child2/1');
+
+return matches && matches.reduceRight((outlet, match, index) => {
+    return (
+      <Context.Provider
+        children={
+          match.route.component !== undefined ? match.route.component : outlet
+        }
+        value={{
+          outlet,
+        }}
+      />
+    );
+}, null as React.ReactElement | null);
+```
+但是他传的这个 outlet 参数，并不能被自动识别为 \<Outlet /> 标签，所以只能渲染出来 Layout， 子组件仍然渲染不出来。
+          
+ 译者自己写了个Demo，来复现一下他这个算法：
+ 
+```tsx
+// 主
+<Context.Provider
+  value={{
+    outlet: <Context.Provider>
+      <Child2 />
+    </Context.Provider>
+  }}
+>
+  <Layout />
+</Context.Provider>
+
+// Layout
+function Layout () {
+    return <Context.Consumer>
+      {values => {
+        return <>
+           'Layout
+           {values.outlet ? values.outlet : <Outlet />}
+        </>
+      }}
+    </Context.Consumer>
+}
+```
+可以正常渲染：
+
+![6](/images/2022-9-19/2022-9-19-6.png)
+
+总结：renderMatches 不要用，坑人。嵌套 Outlet 的思想很好，但终究是给内部使用的内部 API，业务上不要用。
+
+## 8. resolvePath
+
+类型定义：
+```ts
+declare function resolvePath(
+  to: To,
+  fromPathname?: string
+): Path;
+
+type To = string | Partial<Path>;
+
+interface Path {
+  pathname: string;
+  search: string;
+  hash: string;
+}
+```
+
+通过给定的相对路由 to 来获取一个能够 navigate 的绝对路径 path。是hook useResolvedPath 的实现方法。
+
+
+```js
+resolvePath('children/child2/:id') // /children/child2/:id
+```
+
+<hr />
+
+完！
+

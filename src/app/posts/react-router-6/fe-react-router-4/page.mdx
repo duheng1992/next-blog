@@ -1,0 +1,265 @@
+#  React Router v6 官方文档翻译 （四） ---- 各种类型的Router
+
+> 原文路径：https://reactrouter.com/docs/en/v6/routers/browser-router
+
+### BrowserRouter
+
+类型声明：
+```ts
+declare function BrowserRouter(
+  props: BrowserRouterProps
+): React.ReactElement;
+
+interface BrowserRouterProps {
+  basename?: string;
+  children?: React.ReactNode;
+  window?: Window;
+}
+```
+
+BrowserRouter是React Router推荐使用的接口。BrowserRouter基于浏览器内置（H5 API）的history stack来存储当前浏览器地址栏的location信息。
+
+`<BrowserRouter window>`默认会使用当前[document的`defaultView`](https://developer.mozilla.org/en-US/docs/Web/API/Document/defaultView)，他在业务使用中还也可用来在另外一个浏览器window环境下（比如iframe中）追溯URL的变化。
+
+
+使用范例：
+```jsx
+import * as React from "react";
+import * as ReactDOM from "react-dom";
+import { BrowserRouter } from "react-router-dom";
+
+ReactDOM.render(
+  <BrowserRouter>
+    {/* The rest of your app goes here */}
+  </BrowserRouter>,
+  root
+);
+```
+
+### HashRouter
+
+类型声明：
+```ts
+declare function HashRouter(
+  props: HashRouterProps
+): React.ReactElement;
+
+interface HashRouterProps {
+  basename?: string;
+  children?: React.ReactNode;
+  window?: Window;
+}
+```
+
+HashRouter用在基于浏览器的web项目中，而且不需要通过后端服务来控制路由跳转。他的原理是基于浏览器的锚点，通过设置不同的锚点来达到跳转页面的效果。
+
+
+也可以有`<HashRouter window>`的写法，作用同`<BrowserRouter window>`。
+
+使用范例：
+```jsx
+import * as React from "react";
+import * as ReactDOM from "react-dom";
+import { HashRouter } from "react-router-dom";
+
+ReactDOM.render(
+  <HashRouter>
+    {/* The rest of your app goes here */}
+  </HashRouter>,
+  root
+);
+```
+
+> 官方优先推荐使用BrowserRouter，他是基于H5标准制定的，更加规范，有原生的API可以使用；同时，BrowserRouter还可以将当前路由信息发送给server，便于数据同步；此外在一些特殊场景下，会丢失hash信息，以至于HashRouter不能使用，比如将URL使用微信分享。
+
+### HistoryRouter
+
+类型声明：
+```jsx
+declare function HistoryRouter(
+  props: HistoryRouterProps
+): React.ReactElement;
+
+interface HistoryRouterProps {
+  basename?: string;
+  children?: React.ReactNode;
+  history: History;
+}
+```
+
+`<unstable_HistoryRouter>`提供一个将history作为prop的实例对象。可以使用它在非React的上下文环境或全局变量中使用Router。
+
+范例：
+
+```jsx
+import * as React from "react";
+import * as ReactDOM from "react-dom";
+import { unstable_HistoryRouter as HistoryRouter } from "react-router-dom";
+import { createBrowserHistory } from "history";
+
+const history = createBrowserHistory({ window });
+
+ReactDOM.render(
+  <HistoryRouter history={history}>
+    {/* The rest of your app goes here */}
+  </HistoryRouter>,
+  root
+);
+```
+
+> 此API的前缀为“unstable_”，因为您可能会无意中将历史库的两个版本都添加到应用程序中。如果您使用的开发工具允许，建议不要将history添加为直接依赖项，而是依赖react-router包中的嵌套依赖项。一旦我们有了检测不匹配版本的机制，这个API将删除其“unstable_”的前缀。
+
+### MemoryRouter
+
+类型声明：
+```jsx
+declare function MemoryRouter(
+  props: MemoryRouterProps
+): React.ReactElement;
+
+interface MemoryRouterProps {
+  basename?: string;
+  children?: React.ReactNode;
+  initialEntries?: InitialEntry[];
+  initialIndex?: number;
+}
+```
+
+`<MemoryRouter>`将location信息存在一个数组中. 不同于 `<BrowserHistory>` 和 `<HashHistory>`, 他不使用额外的资源（比如浏览器history stack）。它适用于你想要完全控制history stack的场景。比如单元测试。
+
+他有两个参数：
+-   `<MemoryRouter initialEntries>` 默认为 `["/"]` (单一入口’/‘) 他是历史堆栈中的位置数组。这些对象可以是包含`{pathname, search, hash, state}`的完整位置对象，也可以是简单的字符串url
+-   `<MemoryRouter initialIndex>` 默认为 `initialEntries` 的最后一个索引，可传递任意的索引位置
+
+> **Tip:**
+> 大多数React Router的测试都是用了`<MemoryRouter>`作为路由入口, 这里有很多测试范例：[browsing through our tests](https://github.com/remix-run/react-router/tree/main/packages/react-router/__tests__).
+
+使用范例：
+```jsx
+import * as React from "react";
+import { create } from "react-test-renderer";
+import {
+  MemoryRouter,
+  Routes,
+  Route,
+} from "react-router-dom";
+
+describe("My app", () => {
+  it("renders correctly", () => {
+    let renderer = create(
+      <MemoryRouter initialEntries={["/users/mjackson"]}>
+        <Routes>
+          <Route path="users" element={<Users />}>
+            <Route path=":id" element={<UserProfile />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(renderer.toJSON()).toMatchSnapshot();
+  });
+});
+```
+
+### NaviteRouter
+
+类型声明：
+```jsx
+declare function NativeRouter(
+  props: NativeRouterProps
+): React.ReactElement;
+
+interface NativeRouterProps extends MemoryRouterProps {}
+```
+
+`<NativeRouter>` 是React Router推荐的在[React Native](https://reactnative.dev/) App中使用的路由类型。
+
+他有两个可选参数：
+-   `<NativeRouter initialEntries>` 默认为 `["/"]`
+-   `<NativeRouter initialIndex>`  默认为 `initialEntries` 的最后一个索引
+
+使用范例：
+```jsx
+import * as React from "react";
+import { NativeRouter } from "react-router-native";
+
+function App() {
+  return (
+    <NativeRouter>
+      {/* The rest of your app goes here */}
+    </NativeRouter>
+  );
+}
+```
+
+### StaticRouter
+
+类型声明：
+```jsx
+declare function StaticRouter(
+  props: StaticRouterProps
+): React.ReactElement;
+
+interface StaticRouterProps {
+  basename?: string;
+  children?: React.ReactNode;
+  location?: Path | LocationPieces;
+}
+```
+
+`<StaticRouter>`用于在 [node](https://nodejs.org/) 中渲染React Router。其通过 `location` prop 来提供路由信息。
+
+有一个可选参数：
+-   `<StaticRouter location>` 默认是 `"/"`
+
+使用范例：
+```jsx
+import * as React from "react";
+import * as ReactDOMServer from "react-dom/server";
+import { StaticRouter } from "react-router-dom/server";
+import http from "http";
+
+function requestHandler(req, res) {
+  let html = ReactDOMServer.renderToString(
+    <StaticRouter location={req.url}>
+      {/* The rest of your app goes here */}
+    </StaticRouter>
+  );
+
+  res.write(html);
+  res.end();
+}
+
+http.createServer(requestHandler).listen(3000);
+```
+
+### ~~Router （不推荐）~~
+
+类型声明：
+```jsx
+declare function Router(
+  props: RouterProps
+): React.ReactElement | null;
+
+interface RouterProps {
+  basename?: string;
+  children?: React.ReactNode;
+  location: Partial<Location> | string;
+  navigationType?: NavigationType;
+  navigator: Navigator;
+  static?: boolean;
+}
+```
+
+`<Router>`接口是上述其他类型Router所共享的核心组件，为其他高级Router提供理由信息上下文（[context provider](https://reactjs.org/docs/context.html#contextprovider)），使用优先级最低。
+
+开发者几乎不需要直接使用这个API，推荐使用上边更高阶的路由。
+
+他有一个参数：
+- `<Router basename>` 使用basename共享一个根路由。在大型项目或者多入口工程化文件中使用有奇效。
+
+<hr />
+
+
+That's All. 下期讲内置组件的使用。
+

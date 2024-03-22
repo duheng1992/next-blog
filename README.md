@@ -1,34 +1,10 @@
 # 小肚肚肚肚肚哦 Blog
 
-This blog is built with **Next.js** and a library called [Nextra](https://nextra.vercel.app/). It allows to write Markdown and focus on the _content_ of your portfolio. This starter includes:
+开发步骤：
 
-- Automatically configured to handle Markdown/MDX
-- Generates an RSS feed based on your posts
-- A beautiful theme included out of the box
-- Easily categorize posts with tags
-- Fast, optimized web font loading
+> node >= 18
 
-## Configuration
-
-1. Update your name in `theme.config.js` or change the footer.
-1. Update your name and site URL for the RSS feed in `scripts/gen-rss.js`.
-1. Update the meta tags in `pages/_document.js`.
-1. Update the posts inside `pages/posts/*.md` with your own content.
-
-## Deploy your own
-
-Deploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=next-example):
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/git/external?repository-url=https://github.com/vercel/nextjs-portfolio-starter&project-name=portfolio&repository-name=portfolio)
-
-## How to use
-
-Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init) or [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/) to bootstrap the example:
-
-```bash
-npx create-next-app --example blog my-blog
-# or
-yarn create next-app --example blog my-blog
-```
-
-Deploy it to the cloud with [Vercel](https://vercel.com/new?utm_source=github&utm_medium=readme&utm_campaign=next-example) ([Documentation](https://nextjs.org/docs/deployment)).
+1. pnpm i
+2. 进入目录 next-blog/src/components/Navigation.jsx 修改侧边栏目录
+3. 进入目录 next-blog/src/components/Header.jsx 修改顶部菜单栏目录
+4. 路由文件在 app 下创建 page.mdx 文件
