@@ -196,6 +196,7 @@ export const navigation = [
       { title: '算法', href: '/posts/algorithm' },
       { title: 'react router v6 官网解读', href: '/posts/react-router-6' },
       { title: '微前端 monto-app', href: '/posts/monto-app' },
+      { title: '前端主题方案', href: '/posts/theme' },
     ],
   },
   {

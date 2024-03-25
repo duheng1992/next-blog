@@ -1,0 +1,60 @@
+## 提前加载样式，类名切换方案
+
+先引入各个主题的 css，通过切换类名实现主题切换。
+
+我们来看一个 antd 的实现案例：[antd-theme-change-demo](https://duheng1992.github.io/antd-theme/)
+
+他的原理是切换主题时，引入不同的主题算法（css 文件）：
+
+然后配置 `ThemeProvider`:
+
+```js
+return (
+   <ConfigProvider
+     theme={{
+       algorithm: themeLight ? theme.defaultAlgorithm : theme.darkAlgorithm,
+     }}
+   >
+     {children}
+   </ConfigProvider>
+ );
+```
+在两种模式下，相同的元素，但是类名不同了，则使用不同的 css 主题文件：
+
+亮：
+![image.png](/images/2024-1-25/2024-1-25-1.png)
+
+暗：
+![image.png](/images/2024-1-25/2024-1-25-2.png)
+
+此外，还可以配置前缀来自定义组件样式：
+
+```js
+export const PREFIX = 'tech-theme';
+...
+
+<ConfigProvider
+  prefixCls={prefixCls}
+>
+  {children}
+</ConfigProvider>
+```
+默认：
+![image.png](/images/2024-1-25/2024-1-25-3.png)
+
+自定义前缀：
+
+![image.png](/images/2024-1-25/2024-1-25-4.png)
+
+> 此方案的样式还可以通过 hook 动态获取为 token 使用。
+
+优点：
+
+- 样式切换会更加顺畅
+- 便于组件封装与状态管理
+- 可配置性比较强，支持动态自定义样式
+
+缺点：
+
+- 首屏加载会慢一些
+- 除了样式切换不会闪烁，其余缺点与动态 link 方案缺点一样

@@ -1,0 +1,74 @@
+export const metadata = {
+  title: '前端主题配置',
+  description:
+    '前端主题切换策略',
+}
+
+
+import { Guides } from '@/components/Guides'
+
+
+前端主题切换功能在许多网站和应用中都非常重要，它允许用户根据自己的喜好或需求来改变界面的视觉效果。它是提升用户使用体验的重要指标，通过网站个性化定制，可以增加用户的忠诚度和使用黏性，提高用户留存率，提高产品形象。
+
+本文从技术实现上总体来盘点一下前端目前都有哪些已经落地的主题方案。
+
+
+## 1. 设计原则 {{ tag: '前言', label: '', id: 1 }}
+
+方案设计，除了技术上实现外，还需要注意其业务场景和用户群体的使用体验，大体上应该遵循如下原则：
+
+1. 应遵循用户使用流畅原则，不应添加额外的使用负担
+ 
+> 比如，页面中由用户定制化的内容，主题切换后导致色差而无法看清；或者切换按钮藏得太深，用户找不到等
+
+2. 不应过度影响页面加载速度
+
+> 比如，样式 css 太大，网页的白屏速度大大增加，反而影响了使用体验
+
+3. 应根据业务场景和用户群体决定
+
+> 比如，客户群体是 To B 的商务人士，年轻人很少，这种花里胡哨的切换反而不适应，对于商旅人士，移动端适配做得好可能更重要。
+
+
+## 2. 注意事项 {{ tag: '注意', label: '', id: 2 }}
+
+在主题方案落地后，开发过程中还应注意如下事项：
+
+- 应设置检查规范（比如 CI/CD script），避免开发者自定义样式
+- 上线前需 UI 样式走查
+
+
+## 3. 导航 {{ tag: '方案', label: 'demo', id: 3 }}
+
+<Guides guides={[
+  {
+    href: '/posts/theme/link',
+    name: 'Link 动态引入',
+    description: '动态 link 引入样式文件',
+  },
+  {
+    href: '/posts/theme/preload',
+    name: '预加载 + 类名配置',
+    description: '提前加载样式，类名切换方案',
+  },
+  {
+    href: '/posts/theme/css-variable',
+    name: 'CSS 变量',
+    description: '通过 CSS 变量切换样式',
+  },
+  {
+    href: '/posts/theme/css-preprocessor',
+    name: 'CSS 预处理器',
+    description: '通过 CSS 预处理器处理样式文件',
+  },
+  {
+    href: '/posts/theme/css-in-js',
+    name: 'CSS In JS',
+    description: '全都是 js',
+  },
+  {
+    href: '/posts/theme/css-frame',
+    name: '使用CSS框架',
+    description: '借助框架来配置主题',
+  },
+]} />

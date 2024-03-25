@@ -1,0 +1,49 @@
+
+## CSS 预处理器
+
+我们来看一个例子：[sass 预编译 theme](https://duheng1992.github.io/sass-theme/)
+
+将所有的样式文件使用 Sass 预先定义好：
+
+![image.png](/images/2024-1-25/2024-1-25-5.png)
+
+然后写一个 `buildThemes.js` 脚本在打包前编译为 css，然后将这个文件动态插入到 head 里：
+
+```js
+const createLinkElementWithKey = (key) => {
+  const linkEl = document.createElement('link');
+  linkEl.setAttribute('rel', 'stylesheet');
+  linkEl.classList.add(getClassNameForKey(key));
+  document.head.appendChild(linkEl);
+  return linkEl;
+};
+
+...
+// 切换时调用
+const setStyle = (key = 'theme', path = 'white') => {
+  getLinkElementForKey(key).setAttribute('href', `sass-theme/assets/themes/${path}.css`);
+}
+```
+
+示意图：
+![image.png](/images/2024-1-25/2024-1-25-6.png)
+
+> 脚本的写法见 [Demo](https://github.com/duheng1992/sass-theme/tree/master)
+
+最终效果：
+
+![image.png](/images/2024-1-25/2024-1-25-7.png)
+
+> 在我这个 demo 里，其实也是把主题样式挂载为全局的 css 变量，只是使用 css 预处理器过度了一下
+
+
+优点：
+
+- 样式切换流畅，不会卡顿
+- 语法更多样，开发成本低
+- 与 css 变量一样，新增或修改样式，只需要改动 Scss/Less 变量即可
+
+缺点：
+
+- 需要在编译时手动编译，运行时没办法热替换
+- 学习成本高一些

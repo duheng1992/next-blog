@@ -1,0 +1,62 @@
+## CSS 变量
+
+这个方案是目前主流推荐的方案。在介绍之前，先讲一下浏览器的几个新特性。
+
+#### color-scheme 方案
+ 
+ [color-scheme](https://developer.mozilla.org/zh-CN/docs/Web/CSS/color-scheme) 是浏览器普遍支持的配置主题的属性。他表示调用操作系统默认的主题方案覆盖当前元素样式：
+ 
+ [color-scheme：CSS 变量主题切换案例](https://code.juejin.cn/pen/7317573307016806435)
+ 
+#### 自定义方案
+
+如果要自定义变量，可以这样定义自己的样式变量：
+
+```css
+// theme.css
+
+// 夜间模式
+html[data-theme='dark'] {
+  --text-color: #fff;
+  --brand-primary: #1668dc;
+}
+
+// 普通模式
+:root {
+  --text-color: #333;
+  --brand-primary: #1677ff;
+}
+```
+
+然后在使用时：
+
+```js
+// 入口文件
+import './theme.css';
+
+// 组件样式
+a {
+  color: var(--brand-primary);
+}
+```
+
+在切换主题时：
+
+```js
+document.documentElement.dataset.theme = 要设置的theme
+```
+
+你可以维护一个 `useTheme` 来动态获取当前的主题。
+
+这里有一个成熟的案例：[daisyUI](https://daisyui.com/)
+
+优点：
+
+- 原生支持，是现在主流方案
+- 轻量级，部署方便，可定制化程度高
+- 不存在优先级冲突问题
+- 可实现热替换和更改
+
+缺点：
+
+- 老的浏览器存在兼容性问题

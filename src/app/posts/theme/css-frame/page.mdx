@@ -1,0 +1,48 @@
+## 使用 CSS 框架
+
+如果你不想自己配置这些乱七八糟的配置，又苦于不会设计主题颜色，那么 [Tailwindcss](https://tailwindcss.com/docs/dark-mode) 就可以帮你完成这个任务。
+
+> 使用 css 框架，原则上不算是一个新技术分类，他还是上面所讲的方案中的一种或几种，是对这些方案的企业级封装
+
+我们借用官方的夜间主题的例子：
+
+```js
+<div class="bg-white dark:bg-slate-800 rounded-lg px-6 py-8 ring-1 ring-slate-900/5 shadow-xl">
+  <div>
+    <span class="inline-flex items-center justify-center p-2 bg-indigo-500 rounded-md shadow-lg">
+      <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><!-- ... --></svg>
+    </span>
+  </div>
+  <h3 class="text-slate-900 dark:text-white mt-5 text-base font-medium tracking-tight">Writes Upside-Down</h3>
+  <p class="text-slate-500 dark:text-slate-400 mt-2 text-sm">
+    The Zero Gravity Pen can be used to write in any orientation, including upside-down. It even works in outer space.
+  </p>
+</div>
+```
+
+使用 `dark:` 来声明在主题为夜间时的样式，可以配置为自动识别系统样式或者是可控的切换模式，切换为夜间模式后，会在 html 根元素上添加类 `dark`：
+
+
+![image.png](/images/2024-1-25/2024-1-25-9.png)
+
+这样，Tailwind 就能识别并修改渲染样式了：
+
+![image.png](/images/2024-1-25/2024-1-25-10.png)
+
+> 这种切换方式，本质上还是类名切换模式，只是使用框架更加方便快捷，支持的生态也更好
+
+> 详细的 Tailwindcss 的使用，可以见 [小肚带您 Tailwind CSS 快速入门](https://juejin.cn/post/7301910992312549376)
+
+优势：
+
+- 大势所趋，前景广阔
+- 易于管理和维护，使得定制主题变得随心所欲
+- 代码冗余小
+- 更好的性能与可扩展性
+
+不足：
+
+- 框架本身可能会与已有项目架构冲突
+- 框架约束了可定制的灵活性
+- 学习成本较高
+- 需要有额外的维护版本升级工作

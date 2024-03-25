@@ -1,0 +1,50 @@
+## CSS-IN-JS
+
+使用过 React 的朋友应该听说过 emotion，他的设计理念是 `All styles in Js`，我之前讲过你的 UI组件库 就用的是这个：[手把手搭建基于React的前端UI库 （二）-- 主题配置](https://juejin.cn/post/7076652936331280421).
+
+他与 Antd 的实现理念一致，也是维护一个 `ThemeProvider` 来完成可配置的主题设置：
+
+```js
+import { ThemeProvider as EThemeProvider } from 'emotion-theming';
+
+render() {
+    const { theme: _theme, ...rest } = this.props;
+    const { theme } = this.state;
+    return <EThemeProvider theme={theme} {...rest} />;
+}
+```
+
+> Antd 是切换后使用不同的 css 文件，emotion 是切换后使用不同的样式 js，本质上没有区别
+
+上面的 theme 主题可以使用一个 `designTokens.ts` 配置各种尺寸，颜色等：
+
+
+![image.png](/images/2024-1-25/2024-1-25-8.png)
+
+然后将文件导出后，全局来访问：
+
+```js
+mport { useTheme } from 'emotion-theming';
+
+import { defaultTheme } from '../../style';
+
+const useDesignTokens = () => {
+  // 拿到Themeprovider的theme
+  const theme = useTheme();
+  if (!Object.keys(theme).length) return defaultTheme.designTokens;
+  return theme.designTokens;
+};
+
+export default useDesignTokens;
+```
+
+优点：
+
+- 不会存在 css 加载部署的问题，适合微前端这种需要隔离样式的场景
+- ...\[Antd 方案优点]
+
+缺点：
+
+- 学习曲线比较高
+- 增加了运行时的开销和打包体积
+- 源码可读性可能会变差

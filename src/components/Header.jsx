@@ -89,8 +89,8 @@ export const Header = forwardRef(function Header({ className }, ref) {
         <nav className="hidden md:block">
           <ul role="list" className="flex items-center gap-8">
             <DropdownMenu title="链接" items={[
-              { href: '#', title: '配色方案' },
-              { href: '#', title: '主题切换' },
+              { href: 'https://duheng1992.github.io/monto-color/', title: '配色方案' },
+              { href: 'https://dh1992.gitee.io/dux-ui-react/', title: 'DUX UI' },
               { href: '#', title: '微服务框架' },
             ]} />
             <TopLevelNavItem href="/">公告</TopLevelNavItem>

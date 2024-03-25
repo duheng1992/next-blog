@@ -1,0 +1,33 @@
+## Link 动态引入
+
+提前准备好各个主题的 CSS 文件，在切换的时候加载，比如：
+
+```js
+// js
+ const autoThemeChange = (e) => {
+    const isDark = e.matches;
+    document.getElementById('theme').href = `${isDark ? 'dark' : 'light'}.css`; // 这里的文件，可以是远程的，也可以是项目中的静态文件
+}
+
+ mediaQueryListDark = window.matchMedia('(prefers-color-scheme: dark)');
+ mediaQueryListDark.addListener(autoThemeChange); 
+```
+
+```html
+<!-- html -->
+<head>
+  <link rel="stylesheet" src="https://cdn.xxx.com/dark.css">
+<head>
+```
+
+优点：
+
+- 实现简单，只需要关注维护 css 即可
+- 可以实现主题样式按需加载
+
+缺点：
+
+- 如果 css 文件过大, 可能会导致页面样式闪烁
+- 各个主题文件相互独立，修改样式比较麻烦
+- 在服务端渲染时，没办法直接操作客户端 DOM 元素，会影响加载性能
+- 不够灵活，不能满足现代前端开发的需求
