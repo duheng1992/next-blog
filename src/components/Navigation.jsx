@@ -190,13 +190,16 @@ export const navigation = [
     title: 'Blogs',
     links: [
       // { title: 'Introduction', href: '/' },
+      { title: 'JavaScript 发展史', href: '/posts/js-history' },
       { title: '前端工程化', href: '/posts/engineering' },
       { title: '组件库 UI', href: '/posts/UI' },
       { title: 'CSS探索', href: '/posts/css' },
-      { title: '算法', href: '/posts/algorithm' },
+      { title: 'react 源码分析', href: '/posts/react-source' },
       { title: 'react router v6 官网解读', href: '/posts/react-router-6' },
-      { title: '微前端 monto-app', href: '/posts/monto-app' },
+      { title: '前端性能分析系列', href: '/posts/performance' },
       { title: '前端主题方案', href: '/posts/theme' },
+      { title: '微前端 monto-app', href: '/posts/monto-app' },
+      { title: '算法', href: '/posts/algorithm' },
     ],
   },
   {

@@ -1,0 +1,413 @@
+# 前端长列表滚动方案探讨，看完不要再说不知道怎么实现虚拟列表了
+---
+
+![WechatIMG105.jpeg](/images/2022-8-23/2022-8-23-1.png)
+
+> 长列表滚动，是一个老生常谈的性能优化问题，在提到性能优化时却又是避不开的话题，其目标无非就是`尽可能在任意时刻内只关注可视窗口区域的数据的流畅展示，而忽视被遮挡区域，同时又不能影响数据的正常渲染。`本文尽可能全的总结一下所有长列表滚动的优化方案，以供参考。
+> 
+> （本文仅在掘金发布）
+
+
+## 0. 引
+
+先说说 DOM 元素过多，页面为什么会卡顿呢？有没有想过这个问题？
+
+其实用直观感受也能觉察的出来，因为浏览器要操心的事情多了。一下加载很多的东西，HTML 元素 占用的内存会一下变多，浏览器单薄的小身板就会吃不消，如果给每个dom又添加监听事件，再加上愈加复杂的 DOM 结构，马上就会雪上加霜。
+
+对长列表滚动呢，则会更进一步，每次滚动就会让页面所有元素触发回流重绘，因为其位置变化了嘛。你打一些老游戏，比如红警，视窗内单位过多时，就会卡顿，你用最好的显卡和CPU也还是会卡顿，他是因为老游戏的优化做的不够好。同理，web端也需要此类优化，处理长列表有如下几种方式：
+
+1. 分页加载：页次都显示固定的条数，性能可控。
+2. 无限滚动：初始加载一小部分，越滚动加载越多。这种出现性能问题只是时间问题。
+3. 虚拟滚动。
+
+第一个分页加载不在今天的讨论范畴，这里就2、3两点开始谈论。
+
+## 1. 懒加载
+
+对于数据很多的列表，一开始界面初始化的时候肯定不能把全部数据都塞在列表里，先别说前端能不能撑得住，后端查询时长都要爆炸。
+
+最常见的就是手机端的商品列表，如下图：
+
+![WechatIMG102.jpeg](/images/2022-8-23/2022-8-23-2.png)
+
+设置一个内部可滚动的容器，固定高度，通过计算 `scrollheight` 与 `scrollTop` 的差值与容器的高度就可知道是否滚动到了底部：
+
+
+```jsx
+// html中css设置container高度 500px
+<div class="container">
+    <div class="item">1</div>
+    <div class="item">2</div>
+    <div class="item">3</div>
+    ...
+</div>
+
+// js
+const container = document.querySelector('.container');
+
+container.addEventListener('scroll', () => {
+  const offset = container.scrollHeight - container.scrollTop;
+  const delta = 50;
+  
+  console.log(offset)
+
+  if (offset <= (500 + delta)) {
+    // 可以设置滚动锁，锁定滚动监听
+    const newDom = document.createElement('div');
+    newDom.setAttribute('class', 'item');
+    newDom.innerText = '我是新加的';
+    container.appendChild(newDom)
+  }
+})
+```
+
+
+在用户滚动到最下边自动监听滚动事件后，自动加载固定数目的内容或者提示 "加载更多" 来让用户点击加载。如下边的示意图所示，已经滚到底后，scrollHeight - scrollTop 的计算值就是视窗高度的 500px 了：
+
+![image.png](/images/2022-8-23/2022-8-23-3.png)
+
+
+上面给出了简易实现原理，这里只探讨方案实现，具体实现可加滚动锁或者延时来防止过快添加元素。可以看到这里设置了一个 $delta$ 偏移值 50 像素，在滚动到距底部 50 像素时触发元素插入。
+
+> 滚动锁其实就是一个定时器，开始滚动时定时器开始计时，在计时期间可以取消订阅 scroll 事件或者禁用事件回调逻辑，计时结束后执行一次渲染列表的计算。
+
+- 优点
+
+实现相对简单，不需要额外引入类库。不用考虑每一个 item 的高度有多少。
+
+- 缺点 
+
+1. 频繁下拉，会造成滚动条越来越短，使得数据展示显得臃肿；
+2. 已经加载过的滚动隐藏区域的数据并没有做渲染上的处理；
+3. 全局搜索或页面回退后再次进来查看列表，滚动状态会丢失；
+
+
+## 2. IntersectionObserver + 空div占位
+
+顾名思义，这种方式是使用空的div占住隐藏区域之外的元素，这种往往可以和第一个方案组合使用。还是上面的例子：
+
+```js
+const container = document.querySelector('.container');
+const items = Array.from(container.children) || [];
+
+items.forEach(item => {
+  const intersectionObserver = new IntersectionObserver(
+    function (entries) {
+      // 如果不可见，就返回
+      if (!entries[0].isVisible) {
+        entries[0].target.backup = entries[0].target.innerHTML || entries[0].target.backup;
+        entries[0].target.innerHTML = '';
+        return;
+      }
+
+      // 在可视区域
+      entries[0].target.innerHTML = 
+      entries[0].target.backup || entries[0].target.innerHTML;
+    },
+    {
+      threshold: [0, 1],
+      /* required options*/
+      trackVisibility: true,
+      delay: 100  
+    });
+
+  // 开始观察
+  intersectionObserver.observe(item);
+})
+```
+我这里设置 IntersectionObserver 的配置属性threshold为 `[0, 1]`，表示完全可见和完全不可见时才出发回调。通过判断 `isVisible` 属性来控制 `innerHTML` 显示内容。这里你需要一个缓存的map（我这里存在了dom的backup里），在可视时，恢复 `innerHTML` 的值。
+
+这样在滚动时我们再看看dom结构：
+
+![image.png](/images/2022-8-23/2022-8-23-4.png)
+
+可以看到，不显示的区域已经置为了空的div了。
+
+
+- 优点
+1. 使用原生的H5 API，兼容性好；
+2. 结合第一种方案，可监听底部元素是否可见来实现无限滚动，实现简单；
+3. 没有dom插入删除操作，开销比较小，不破坏原有的结构；
+4. 空的div占位可以使滚动条的高度不会跳变；
+
+- 缺点
+1. 就算是空的div，也还是会造成渲染浪费；
+2. 缓存map造成空间浪费，维护成本提高；
+3. 无限滚动太频繁，滚动条还是会缩为一个点；
+4. 占位div的高度固定了，就意味着item的高度需要固定；
+
+## 3. 数据截断式占位
+
+这种方案可以看做是第二种方案的升级版。其不使用小的div占位，而是在列表开头和结尾，分别用两个大的div占位，达到数据截断的效果。我们看草图：
+
+![1071661234958_.pic.jpg](/images/2022-8-23/2022-8-23-5.png)
+
+`startIndex` 和 `endIndex` 就是数据数组中的真实下标位置，所以要替换的区间是 $[0, startIndex) ∪ (endIndex, children.length - 1]$。我们要做的就是把 startIndex 之前和 endIndex 之后的部分替换为div。这里因为要用到 scroll 属性，所以还是用 scroll 事件来监听，同时牵扯到dom结构的变动，所以还是使用js来操作dom。
+
+先定义容器：
+
+```html
+// css不是重点，忽略
+<div class="container"></div>
+```
+定义数据并获取元素：
+```js
+const data = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+const container = document.querySelector('.container');
+```
+接下来定义一下添加列表的方法：
+
+```js
+function addList(data, container) {
+  data.forEach(item => {
+    const dom = document.createElement('div');
+    dom.setAttribute('class', 'item');
+    dom.innerHTML = item;
+    container.appendChild(dom)
+  });
+}
+```
+
+定义滚动事件监听（可加入滚动锁或者节流优化）：
+
+```js
+container.addEventListener('scroll', () => {
+  const scrollTop = container.scrollTop;
+
+  // 上边空白的高度
+  const topHeight = scrollTop;
+  const startIndex = Math.max(Math.ceil(topHeight / 40) - 2, 0);
+  const endIndex = startIndex + Math.ceil(500 / 40);
+
+  const show = data.slice(startIndex, endIndex + 1);
+
+  // 计算下边剩余的隐藏区域高度
+  const dataHeight = data.length * 40;
+  const bottomHeight = dataHeight - 500 - scrollTop;
+
+  const topDom = document.createElement('div');
+  const bottomDom = document.createElement('div');
+  topDom.style.height = topHeight + 'px';
+  bottomDom.style.height = bottomHeight + 'px';
+
+  // 还没到底
+  if (bottomHeight > -100) {
+    // 清空
+    container.innerHTML = '';
+    container.appendChild(topDom);
+    addList(show, container);
+    container.appendChild(bottomDom);
+  }
+});
+```
+可以看到，这里不能使用 container.scrollHeight 来计算高度了，要通过数据乘以每一行高度获取。最后的`bottomHeight > -100`是为了避免出现计算负数而造成的页面抖动。（当然你也可以写死一个阈值，页面足够长时，超过这个阈值，首尾两个div高度就定死。）
+
+最后在页面初始化时加载一次列表：
+
+```js
+window.onload = function() {
+    addList(data, container)
+}
+```
+最后我们在页面上滚动一下看看效果：
+
+![image.png](/images/2022-8-23/2022-8-23-12.png)
+成功！！
+
+更重要的是，这个方案完美契合单页应用框架，所有的dom操作都可以使用框架语言替代，比如用vue的v-for + 计算属性就可以完成。之前在bilibili面试的时候，就问了一下是否做过这个方案😂。
+
+- 优点
+1. 通用性强，性能提升明显
+2. 可以使用虚拟dom等框架实现
+3. 不用担心无限滚动场景下滚动条缩为一个点，因为你完全可以动态控制首尾两个div的高度。
+
+- 缺点
+1. item的高度往往需要固定
+2. 滚动条抖动需要特殊处理
+
+
+## 4. CSS-`content-visibility`实现可视区域判定
+
+先来看一下caniuse的兼容性：
+
+![image.png](/images/2022-8-23/2022-8-23-6.png)
+
+主流的Chrome和Edge倒是都支持。他有个 `auto` 属性，其作用是，如果该元素不在屏幕上，并且与用户无关，则不会渲染其后代元素。
+
+那我们就使用`content-visibility`来实现一下虚拟列表。
+
+我们定义dom结构：
+
+```html
+<div class="container">
+    <div class="item">
+      <ul>
+        <li>23423</li>
+        <li>23423</li>
+        <li>23423</li>
+        <li>23423</li>
+      </ul>
+    </div>
+    ... 肥肠多数据在这里
+</div>
+```
+
+我们添加到100W行，看一下渲染时间：
+
+![image.png](/images/2022-8-23/2022-8-23-13.png)
+
+我们添加到400W行：
+
+![image.png](/images/2022-8-23/2022-8-23-7.png)
+直接卡死，秒杀CPU！
+
+![image.png](/images/2022-8-23/2022-8-23-8.png)
+
+此时加上一段css：
+```css
+.item {
+    content-visibility: auto;
+}
+```
+100W条时：
+
+![image.png](/images/2022-8-23/2022-8-23-9.png)
+可以看到，对于数据量大的列表，优化的效果很明显。
+
+400W行时勉强能看到列表，但是还是卡：
+
+![image.png](/images/2022-8-23/2022-8-23-10.png)
+看来数据足够多时，已经不是优化能处理的了。
+
+其实现原理，其实还是属于懒加载，不在视口区域的地方就不渲染，只不过是css配置后让浏览器帮我们做了。此时就有一个问题，下拉滚动时，突然出现了一些数据，滚动条必然会抖动，此时在配置一个css属性即可：
+```css
+.item {
+    contain-intrinsic-size: 120px;
+}
+```
+这样，浏览器就会知道每一行的高度，会自动撑开滚动区域。
+
+- 优点
+1. 不影响网页全局搜索
+2. 使用简单，纯css
+
+- 缺点
+1. 未在视窗区域的异步资源还是会被加载
+2. 主流浏览器兼容性差，慎用
+
+
+## 5. 总结
+
+综上所述，关于web长列表滚动性能优化的算法，要么是清除不可见区域的dom元素，要么是用更简单的元素替换之，其目的无非就是为了能够让浏览器的渲染压力小一点。
+
+回到一开始。`我们在技术选型时，到底要使用分页呢，还是长滚动呢？`作者建议要视情况而定，比如手机端的H5就不适合分页，分页操作在小空间内不友好，适合PC端应用。无限滚动呢，适用范围比较广，比如bilibili主站PC端的评论列表，就是无限+虚拟滚动（当然b站也做了部分 分页式 的）；但是，无限滚动对于搜索不友好，搜索结束后找不到滚动的位置了，还得重新滚，哈哈！同时无限滚动对于各个条目高度相差过大的场景也不适合。
+
+> 下图中，b站评论列表的二级评论，展开后便是分页的
+
+
+![image.png](/images/2022-8-23/2022-8-23-11.png)
+
+说句题外话，几乎所有的性能优化策略，都是受了现阶段有限资源的限制。想当年2G时代，一个月套餐包20MB都已经觉得很大了，手机刷一个QQ家园什么的都很够用，那个时候也没觉得网页慢。然而现在主流浏览器都自带很多性能优化了，但是似乎大家仍然不满足\[┓( ´∀` )┏\]。
+
+随着时代的进步，计算机算力还会提升，到时候目前的前端性能优化可能就没有意义了。但是现在显然还没到那一步。
+
+很多年以后，我们可能会给这个时代取个名字，叫“互联网新石器时代”。这个时代里，实现一个程序需要一群写代码的人好几个月的投入，代码质量因人而异，维护起来也困难，运维成本也高，自动化程度过低，大多数代码的生命周期不超过5年。他们资源有限，天天在为节省带宽和存储空间而发愁，那个时代，被迫性能优化反倒成了程序员必备的技能了。
+
+完！
+
+<hr />
+
+## 6. 附言
+
+下面就总结一下主流前端框架的使用（ 内部原理自己看源码去，原理都讲了，代码还不想自己写，可是不会进步的呦~~ ）：
+
+### vue-virtual-scroll-list
+
+引入：
+```js
+import VirtualList from 'vue-virtual-scroll-list'
+```
+使用：
+```jsx
+<virtual-list style="height: 360px; overflow-y: auto;" // make list scrollable
+  :data-key="'uid'"
+  :data-sources="items"
+  :data-component="itemComponent"
+/>
+...
+
+export default {
+    name: 'root',
+    data () {
+      return {
+        itemComponent: Item,
+        items: [{uid: 'unique_1', text: 'abc'}, {uid: 'unique_2', text: 'xyz'}, ...]
+      }
+    },
+    components: { 'virtual-list': VirtualList }
+}
+
+// Item是渲染组件，接受index和source属性
+```
+
+官网地址：[vue-virtual-scroll-list](https://github.com/tangbc/vue-virtual-scroll-list#live-demo)
+
+### React-window
+
+引入：
+
+```js
+import { FixedSizeList as List } from 'react-window';
+```
+使用：
+
+```jsx
+const Column = ({ index, style }) => (
+  <div style={style}>Column {index}</div>
+);
+
+const Example = () => (
+  <List
+    height={75}
+    itemCount={1000}
+    itemSize={100}
+    layout="horizontal"
+    width={300}
+  >
+    {Column}
+  </List>
+);
+```
+
+官网地址：[react-window](https://react-window.vercel.app/#/examples/list/fixed-size)
+
+### Angular-cdk
+
+引入：(前提是引入cdk的module)
+
+```js
+import {ChangeDetectionStrategy, Component} from '@angular/core';
+
+/** @title Basic virtual scroll */
+@Component({
+  selector: 'cdk-virtual-scroll-overview-example',
+  styleUrls: ['cdk-virtual-scroll-overview-example.css'],
+  templateUrl: 'cdk-virtual-scroll-overview-example.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class CdkVirtualScrollOverviewExample {
+  items = Array.from({length: 100000}).map((_, i) => `Item #${i}`);
+}
+```
+使用：
+```html
+<cdk-virtual-scroll-viewport itemSize="50" class="example-viewport">
+  <div *cdkVirtualFor="let item of items" class="example-item">{{item}}</div>
+</cdk-virtual-scroll-viewport>
+```
+
+官网地址：[Angular-CDK](https://v7.material.angular.io/cdk/scrolling/overview)
+
+<hr/>
+
+That's all ！

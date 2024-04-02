@@ -4,7 +4,6 @@ export const metadata = {
     '小肚教你快速学习前端工程化',
 }
 
-
 import { Guides } from '@/components/Guides'
 
 ## 工程化基础 {{ tag: '前端工程化', label: '前端基础知识', id: 1 }}
@@ -29,5 +28,15 @@ import { Guides } from '@/components/Guides'
     href: '/posts/engineering/start-mobx',
     name: '开始使用 Mobx 吧！',
     description: '小肚教你快速上手 Mobx',
+  },
+]} />
+
+## Rxjs {{ tag: 'rxjs', label: '基本知识', id: 2 }}
+
+<Guides guides={[
+  {
+    href: '/posts/engineering/rxjs',
+    name: 'RxJs使用指北',
+    description: 'RxJS（Reactive Extensions for JavaScript）是一个基于可观测数据流（Stream）结合观察者模式和迭代器模式的一种异步编程的应用库。',
   },
 ]} />

@@ -1,0 +1,335 @@
+# 手把手搭建基于React的前端UI库 （七）-- 弹出层组件
+---
+
+## 1. 前言
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;我们继续我们的 React 组件库系列。本篇介绍弹出层 PopOver以及 tooltip 的实现。本文的代码展示的是主要的核心代码，全部代码见仓库：[Gitee仓库](https://link.juejin.cn/?target=https%3A%2F%2Fgitee.com%2Fdh1992%2Fdux-ui-react%2F "https://gitee.com/dh1992/dux-ui-react/")，组件样式见[主页](https://dh1992.gitee.io/dux-ui-react/)。
+
+
+## 2. 定义入参
+
+首先，还是先确定一下一个弹出层都需要什么参数来控制呢。相信大家也都用过Tooltip之类的组件，肯定有控制显示隐藏的属性，还有展开方向等，我这里总结了一下基础的属性：
+
+
+| 属性 | 说明 |
+| --- | --- |
+| visible | 受控，控制弹出层展示 |
+| trigger | 触发方式 |
+| placement | 展开方向 |
+| onVisibleChange | 显示事件 |
+| popup | 弹出层的元素 |
+| zIndex | 层级 |
+| popupClassName | 弹出层类名 |
+
+
+## 3. rc-trigger
+
+[rc-trigger](https://www.npmjs.com/package/rc-trigger)是一套流行的开源库，集成了各种触发方式判断、弹出层渲染等功能。本组件库就使用该第三方库。
+
+先引入一下：
+
+```js
+import RcTrigger from 'rc-trigger';
+```
+然后声明一个rcTrigger的组件：
+
+```jsx
+class RcTriggerWrap extends Component {
+  static propTypes = {
+    className: PropTypes.string,
+    popupClassName: PropTypes.string,
+    trueClassName: PropTypes.string,
+  };
+  render() {
+    const { className, popupClassName, trueClassName, ...rest } = this.props as any;
+    return (
+      <RcTrigger
+        className={trueClassName}
+        popupClassName={classnames(className, popupClassName)}
+        {...rest}
+      />
+    );
+  }
+}
+```
+
+接下来，用styled样式包裹一下，便于我们自定义样式：
+
+```jsx
+import styled from '@emotion/styled';
+
+export const PopoverWrap = styled(RcTriggerWrap)`
+    /* 放置css */
+`;
+```
+这个`PopoverWrap`便是我们之后要用的弹出层组件的外壳了。
+
+弹出层的组件，其实只需要对外暴露 `action` 、`placement` 和 `popup`属性就行了，所谓在导出时，我们需要再封装一下。
+
+在组件库的index.tsx文件中，可以这样使用：
+
+
+```tsx
+...
+return <PopoverWrap
+            action={trigger}
+            popupPlacement={placement}
+            popupTransitionName={
+              transitionName || animation ? animationPrefixCls + '-' + animation : null
+            }
+            popupVisible={popup == null ? false : this.state.visible}
+            popup={popup}
+            onPopupVisibleChange={this.onVisibleChange}
+            popupClassName={className}
+            getPopupContainer={getPopupContainer}
+      >
+            {children}
+      </PopoverWrap>
+```
+- `action`对应的是rc-trigger的action属性，trigger通过props接受。指的是触发弹出的操作，可选项有 'hover','click','focus','contextMenu'，是一个数组参数，默认为：`['hover']`
+
+- `popupPlacement`对应的是rc-trigger的popupPlacement属性，通过props接受。是一个枚举项，枚举定义如下：
+
+```ts
+placement?:
+    | 'topLeft'
+    | 'top'
+    | 'topRight'
+    | 'bottomLeft'
+    | 'bottom'
+    | 'bottomRight'
+    | 'leftTop'
+    | 'left'
+    | 'leftBottom'
+    | 'rightTop'
+    | 'right'
+    | 'rightBottom';
+```
+
+- `popupTransitionName`对应rc-trigger的popupTransitionName属性，定义弹出的动画，是可选项。可通过props接受animation属性来定义。目前，rc-trigger只支持上下方向的动画，其内部使用了rc-animation，可选项如下：
+`"fade" | "zoom" | "bounce" | "slide-up"`
+
+- `popupVisible`对应rc-trigger的popupVisible属性，在用户传了popup后，通过props.visible属性来控制，若用户没有传popup，强行置为false
+
+- `popup`对应rc-trigger的popup属性，是最核心的参数，可传一个Element元素，用于弹出层的展示。
+- `onPopupVisibleChange`属性同上，在popup弹出时触发。
+- `popupClassName`对应rc-table的popupClassName，给弹出层加一个类名。
+- `getPopupContainer`对应rc-table的getPopupContainer，可以自定义一个弹出层容器，非必选项。
+- 最后不能少了参数 `children`, 通过hover或者click这个children才能触发弹出层的变化。rc-trigger组件可以隐性的传一个同名的children，文档里虽然没有写明，但是react组件默认都可以这样传递。
+
+
+## 4. 定义样式
+
+对于弹出层组件的外壳PopoverWrap，还记得上边预留的样式的空白了吗，我们这里分情况讨论。
+
+先把外壳设置为绝对定位，这是为了配合rc-trigger的top和bottom样式，另外，想要弹出层跟随点击区域，也必须绝对定位，父元素使用相对定位。
+
+```tsx
+const _prefixCls = 'dux-ui'; // 通过导入全局变量获得
+
+export const prefixCls = _prefixCls + '-popover';
+export const animationPrefixCls = prefixCls + '-animation';
+
+export const PopoverWrap = styled(RcTriggerWrap)`
+  &.${prefixCls} {
+    // 弹出层绝对定位
+    position: absolute;
+    z-index: 1030;
+    display: block;
+
+    &-hidden {
+      display: none;
+    }
+  }
+  ...
+`;
+```
+
+在控制台里可以看到：
+
+![WeChat37acb5ff66ca4ccd10b4cf17b7162a84.png](/images/2022-6-22/2022-6-22-1.png)
+
+rc-trigger会在传入的popupClassName后拼接一个带有方向参数的类名，由此，我们来定义各自的样式，以左下和左上为例：
+
+
+```scss
+&-enter-active.${prefixCls}-placement-bottomLeft,
+    &-appear-active.${prefixCls}-placement-bottomLeft {
+    animation-name: ${slideUpIn};
+    animation-play-state: running;
+}
+&-enter-active.${prefixCls}-placement-topLeft,
+    &-appear-active.${prefixCls}-placement-topLeft {
+    animation-name: ${slideDownIn};
+    animation-play-state: running;
+}
+```
+
+分别配置使用不同的动画，如果不想自定义动画，也可以不设置。
+
+
+如果props中声明了动画类型，则会有一个这样的类名：
+
+![WeChat2b4c3d7733fd94dae215a0b13c47490f.png](/images/2022-6-22/2022-6-22-2.png)
+
+
+以fade为例，可以这样声明css：
+
+```css
+const animationDuration = '0.1s';
+
+...
+&-fade {
+  &-enter,
+  &-appear,
+  &-leave {
+    animation-duration: ${animationDuration};
+    animation-fill-mode: both;
+  }
+  &-enter,
+  &-appear {
+    animation-name: ${fadeIn};
+  }
+  &-leave {
+    animation-name: ${fadeOut};
+  }
+}
+```
+
+至于动画的具体写法，有很多种，这里以淡入淡出为例，实现一种作为参考：
+
+```css
+export const fadeIn = keyframes`
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+`;
+export const fadeOut = keyframes`
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+`;
+```
+
+## 5. 一个🌰 
+
+有了这些基本的配置，一个弹出层组件就能跑起来了。
+
+测试：
+
+```tsx
+const Popup = () => (
+  <div style={{ height: 30, border: '1px solid #ddd', background: '#fff' }}>This is a popup</div>
+);
+
+<Popover trigger={['hover']} popup={<Popup />}>
+    <Content>{'hover'}</Content>
+</Popover>
+```
+
+预览效果：
+
+
+![WeChatee739043574f992511ff4658245bc54f.png](/images/2022-6-22/2022-6-22-3.png)
+
+成功！
+
+
+## 6. 进阶：做一个Tooltip
+
+Tooltip的底层，其实就是一个popover，我们来实现一下。
+
+直接看return的结果：
+
+```tsx
+<Popover
+      placement={placement}
+      popupClassName={...}
+      popup={popup}
+ />
+```
+Tooltip不同于通用弹出层的地方在于popup的内容，他会有一个类似漫画对话框的小箭头。那我们来定义一下popup：
+
+
+```tsx
+export const arrowWrapCls = popoverPrefixCls + '-span' + '-arrow-wrap';
+export const arrowCls = popoverPrefixCls + '-span' + '-arrow-inner';
+
+const popup = useMemo(() => {
+    return (
+      <TooltipWrap>
+        {arrow && (
+          <Arrow className={arrowWrapCls}>
+            <ArrowInner className={arrowCls} />
+          </Arrow>
+        )}
+        <ContentWrap customStyle={customStyle}>
+          {popup}
+        </ContentWrap>
+      </TooltipWrap>
+    );
+  }, [popup, arrow, customStyle, theme]);
+```
+
+可以看到其接受了几个新的参数，我们一个个来分析。
+
+- `arrow`: 一个bool值，控制是否显示箭头。默认是没有的：
+
+![image.png](/images/2022-6-22/2022-6-22-4.png)
+
+我们来定义箭头的样式，以 top 的方向为例：
+
+
+```css
+const arrowMixin = css`
+  display: inline-block;
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-width: 0;
+  border-color: transparent;
+  border-style: solid;
+`;
+
+export const Arrow = styled('span')`
+  ${arrowMixin};
+`;
+export const ArrowInner = styled('span')`
+  ${arrowMixin};
+`;
+
+.${arrowWrapCls}, .${arrowCls} {
+    margin-left: -${arrowWidth};
+    border-width: ${arrowWidth} ${arrowWidth} 0 ${arrowWidth};
+    border-bottom-color: transparent;
+    border-left-color: transparent;
+    border-right-color: transparent;
+}
+.${arrowWrapCls} {
+    bottom: -${arrowWidth};
+}
+.${arrowCls} {
+    bottom: ${borderWidth};
+}
+```
+可以看到，用一个绝对定位的span包裹，设置宽高是0，然后设置其上、右、左边框宽度后再设置垂直方向的反方向，即下、左、右边框为透明色，模拟一个箭头出来，效果图如下：
+
+
+![image.png](/images/2022-6-22/2022-6-22-5.png)
+
+同理，可设置其他方向的箭头样式~~
+
+- `popup`: 是弹出层元素。
+- `TooltipWrap`和`ContentWrap`是styled包裹组件，本质是个div，可以自定义样式。
+
+<hr />
+
+至此，弹出层组件也讲完辣~~

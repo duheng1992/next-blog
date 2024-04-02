@@ -1,0 +1,195 @@
+# 手把手搭建基于React的前端UI库 （八）-- 模态框
+---
+
+## 1. 前言
+
+我们继续我们的 React 组件库系列。本篇介绍另一种弹出层 - 模态框组件。本文的代码展示的是主要的核心代码，全部代码见仓库：[Gitee仓库](https://link.juejin.cn/?target=https%3A%2F%2Fgitee.com%2Fdh1992%2Fdux-ui-react%2F)，组件样式见[主页](https://link.juejin.cn?target=https%3A%2F%2Fdh1992.gitee.io%2Fdux-ui-react%2F)。
+
+模态框和上一期讲的popover类似，也是弹出层组件。不同的是，模态框不需要通过trigger触发，通过监听传入的 `visible` 参数即可确定显示还是隐藏。
+
+## 2. 定义入参
+
+一个弹窗，一般需要一个title，一个结尾的按钮放置区footer。还有弹窗的尺寸size，背景区域的遮罩mask，最后还有显示参数visible以及弹窗的各种事件：
+
+| 属性              | 说明         |
+| --------------- | ---------- |
+| visible         | 受控，控制弹出层展示 |
+| title       | 标题       |
+| footer | 脚注       |
+| size           | 枚举出内置的尺寸     |
+| mask          | 是否显示遮罩         |
+| visible  | 控制显示      |
+| onClose | 点击关闭按钮的相应事件 |
+| onOk | 点击确定按钮的相应事件 |
+| afterClose | 关闭之后的事件回调 |
+
+## 3. rc-dialog 封装
+
+这对定制化弹窗组件，使用rc-trigger似乎有些力不从心，rc-trigger重点在于处理触发的时机，弹出层跟随点击位置，适合轻量级的弹出层；模态框重点在于处理内容展示，需要更好的展示级的库来支持。
+
+这里使用专用的rc-dialog：
+
+```jsx
+class RcDialogWrap extends Component {
+  static propTypes = {
+    className: PropTypes.string,
+    wrapClassName: PropTypes.string,
+  };
+  render() {
+    const { className, wrapClassName, ...rest } = this.props as any;
+    return (
+      <RcDialog
+        wrapClassName={classnames(className, wrapClassName)}
+        {...rest}
+      />
+    );
+  }
+}
+```
+`className` 为弹窗内容样式类名，`wrapClassName` 为弹窗容器样式类名。
+
+我们自己定义的弹窗，肯定需要比rc-dialog更多的参数和功能，因此我再使用ModalWrap包裹一下刚刚的组件：
+
+
+```js
+export const ModalWrap = styleWrap()(
+  styled(RcDialogWrap)((props) => {
+    const {
+      theme: { designTokens: DT, fontSize },
+      mask,
+      customStyle,
+    } = props as any;
+    
+    return css`
+    
+      // 弹窗容器
+      position: fixed;
+      overflow: auto;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 1010;
+      -webkit-overflow-scrolling: touch;
+      outline: 0;
+    
+      ...
+    `
+  })
+);
+```
+
+可以看到，整个弹窗使用fixed定位，并且居中放置，z-index设置比较大，确保在最顶层即可。
+
+我们再来看看 ModalWrap是怎么使用的：
+
+
+```jsx
+...
+<ModalWrap
+  // 默认的一些直传属性，比如 visible 等
+  {...rest}
+  style={{
+    // 接受自定义的width样式
+    width: width,
+    ...style,
+  }}
+  // prefixCls为组件库前缀，这里为 dux-ui-modal
+  prefixCls={prefixCls}
+  // 这里禁用rc-dialog自带的关闭按钮
+  closable={false}
+  // 传递rc-dialog可识别的动画
+  animation="slide-fade"
+  maskAnimation="fade"
+  onClose={onClose}
+  title={[
+    <div key="content" className={`${prefixCls}-title-content`}>
+      {title}
+    </div>,
+
+    closable && (
+      <Icon
+        key="close"
+        type="remove_circle"
+        className={`${prefixCls}-close`}
+        onClick={onClose}
+      />
+    ),
+  ]}
+  // 使用了lodash：_
+  footer={_.isFunction(footer) ? footer({ locale }) : footer}
+>
+  // 获取ref
+  <div ref={this.savePopupContainer}></div>
+  // 内容物
+  {children}
+</ModalWrap>
+```
+
+我们来分析一下上面的代码。
+
+- animation 和 maskAnimation 为直传给 rc-dialog 的动画配置项；
+- onClose 是关闭事件，由props传入
+- title 封装了传入的 title 元素和 关闭按钮Icon，并付给关闭事件onClose
+- footer 也是直传参数。可自定义，同时也内置了一组操作脚注：
+
+```js
+getDefaultFooter = () => {
+    const { onOk, onClose, locale } = this.props as any;
+    return [
+      <Button size="lg" key="cancel" onClick={onClose} style={{ marginRight: 8 }}>
+        {locale.cancel}
+      </Button>,
+      <Button size="lg" key="confirm" onClick={onOk} styleType="primary">
+        {locale.confirm}
+      </Button>,
+    ];
+};
+```
+
+外壳和事件处理看完了，再看看内容物 children 是怎么处理的。我们为了使用便利，对用户暴露出一个内置的modal content 组件，其实就是一个加了样式的 div：
+
+
+```jsx
+export const SContent = styleWrap({ className: contentCls })(
+  styled.div((props) => {
+    const { maxHeight } = props as any;
+    return css`
+      padding: 16px 20px;
+      overflow: auto;
+      max-height: ${maxHeight};
+    `;
+  }),
+);
+```
+
+## 4. 一个🌰
+
+我们来使用以下刚刚写好的组件：
+
+
+```jsx
+...
+const props = {
+    visible: true
+}
+<Modal
+    {...props}
+    onClose={() => this.close()}
+    afterClose={() => console.log('afterClose')}
+    onOk={() => console.log('onOk')}
+    title="this is title"
+>
+    <Modal.Content>this is content</Modal.Content>
+</Modal>
+```
+
+界面如下：
+
+
+![image.png](/images/2022-6-28/2022-6-28-1.png)
+
+<hr />
+
+模态框相对比较简单，本文就到此结束啦~~
+

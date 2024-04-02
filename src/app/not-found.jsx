@@ -1,10 +1,10 @@
 import { Button } from '@/components/Button'
-import { HeroPattern } from '@/components/HeroPattern'
+// import { HeroPattern } from '@/components/HeroPattern'
 
 export default function NotFound() {
   return (
     <>
-      <HeroPattern />
+      {/* <HeroPattern /> */}
       <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center py-16 text-center">
         <p className="text-sm font-semibold text-zinc-900 dark:text-white">
           404

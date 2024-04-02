@@ -1,0 +1,457 @@
+# Rxjs 使用指北
+---
+
+## 1. 出现背景
+
+应响应式编程的需求，出现了 Rx 这样的专门用来处理数据响应式的库。Rx家族有很多: RxJava，RxSwift, Rx.NET等，这里主要介绍 RxJs 的使用。
+
+RxJs 是一个相当灵活的，使用JavaScript语言的数据响应式库。使用相当的灵活，API繁多，学习成本低，用官网的话叫`可以把 RxJS 当做是用来处理事件的 Lodash `。
+
+## 2. 关键词
+
+ReactiveX、观察者模式、迭代器模式、函数式编程、数据管道。
+
+## 3. RxJs特点
+
+1.  纯净性 (Purity)：使用纯函数来产生值
+
+> 下图中，fromEvent便是纯函数，函数的输出不随外部变量的影响
+> ![1.png](/images/2022-6-19/2022-6-19-1.png)
+
+2.  流动性 (Flow)：RxJS 提供了一整套操作符来处理数据流动
+
+> 常用的运算有 filter、delay、debounceTime、throttleTime、take、takeUntil、distinct、distinctUntilChanged
+
+![2.png](/images/2022-6-19/2022-6-19-2.png)
+
+3.  以值 (Values)传递：对于流经 observables 的值，你可以对其进行转换。
+
+> 还是点击事件的例子，下图中的map和scan便可以对流经的数据值进行映射和数值计算
+
+![3.png](/images/2022-6-19/2022-6-19-3.png)
+
+4.  Observable (可观察对象)
+
+> Rx中一切都是可观察对象，数据值放在可观察对象中。对象通过next方法往数据管道里放入值，在接收端，可以订阅（subscribe）创建出来的同一个可观察对象，通过订阅事件**异步地**拿到数据变化的内容，并且可以处理传输异常。
+
+> 下图中可以看出，subscribe被创建时，若管道里有值，他会依次遍历一下各个值（这可以用作局部缓存），并可自定义处理函数。对于宏任务（setTimeout）会延后判断。
+
+![4.png](/images/2022-6-19/2022-6-19-4.png)
+
+上图中，我们也可以看到一个完整的 subscribe 订阅内部的构成。next函数接受管道传值；error接受传值异常后的错误信息；当响应式对象调用complete函数后，执行complete函数，并结束该次订阅。
+
+一般上，subscribe函数调用时，只接受一个参数的话，默认就是next过来的数据值。
+
+> **与函数、迭代器的区别**
+>
+> *   函数和 Observables 都是惰性运算。如果你不调用函数，就不会执行。Observables 也是如此，如果你不“调用”它(使用 subscribe)，也不会执行
+>
+> *   ES2015 引入了 generator 函数和 iterators (function\*)，这是另外一种类型的拉取体系。调用 iterator.next() 的代码是消费者，它会从 iterator(生产者) 那“取出”多个值。
+>
+> Observable 可以随着时间的推移“返回”多个值，这是函数所做不到的。
+
+学习RxJs，首先得弄懂生产者消费者模式的主被动关系：
+
+| 生产者                 | 消费者                 |
+| ------------------- | ------------------- |
+| 拉取是被动的: 当被请求时产生数据。  | 拉取是主动的: 决定何时请求数据。   |
+| 推送是主动的: 按自己的节奏产生数据。 | 推送是被动的: 对收到的数据做出反应。 |
+
+RxJs是主动推送、被动接受模式。管道入口（可订阅对象，比如Subject）强行推送值，在出口处可选择地接受和过滤数据。
+
+示例参考：`<https://cn.rx.js.org/manual/overview.html#h21>`
+
+## 4. 常用运算符
+
+#### $1. of/from$
+
+将普通对象转换为rxjs可检测的响应式对象
+
+![5.png](/images/2022-6-19/2022-6-19-5.png)
+
+> 不同点： of订阅后忠实的打印源对象，from会将源对象解构后依次打印。是不是有点像Promise.all ?
+
+#### $2. map$
+
+![6.png](/images/2022-6-19/2022-6-19-6.png)
+
+> 顾名思义，与数组的map类似，对于一个响应式对象，可以使用pipe管道指令获取其管道的内容，之后便可以使用各种运算符来处理数据啦。
+
+#### $3. concat 和 concatAll$
+
+合并Observable对象并以此返回其值
+
+concat：首尾相连，将各个订阅值穿起来输出
+
+例1：
+
+```js
+// RxJS v6+
+import  {  of, concat }  from  'rxjs';
+concat(
+  of(1,  2,  3),
+  // subscribed after first completes
+  of(4,  5,  6),
+  // subscribed after second completes
+  of(7,  8,  9)
+)
+// log: 1, 2, 3, 4, 5, 6, 7, 8, 9
+.subscribe(console.log);
+```
+
+例2：
+
+```js
+import { concat, merge, defer, from } from 'rxjs'; 
+
+console.log('Start')
+const promiseA$ = defer(()=>from(new Promise((reslove, reject)=>{
+  setTimeout(()=>{
+    reslove('PromiseA')
+  }, 1000)
+})))
+const promiseB$ = defer(()=>from(new Promise((reslove, reject)=>{
+  setTimeout(()=>{
+    reslove('PromiseB')
+  }, 1000)
+})))
+
+// 会依次间隔一秒打印Start, PromiseA, PromiseB
+concat(promiseA$, promiseB$).subscribe(x => console.log(x));
+```
+
+concatAll：是一个高阶的处理函数，顺序接受上游抛出的各个数据流作为它的数据， 若前面的数据流不能同步的完结，它会暂存后续数据流，当前数据流完成后它才会订阅后一个暂存的数据流。可以想成是把所有元素 concat 起来。其前置条件式必须传过来一组 Observable 对象。
+
+例1：
+
+![7.png](/images/2022-6-19/2022-6-19-7.png)
+
+> concatAll 一般用于处理一次性或者短时间内有多个管道数据的情况。比如处理点击事件，在他前置的运算符，必有一个类似于map的映射，concatAll 可以将一个 Observable 对象映射为拍平的值来依次处理。
+
+不使用 concatAll，只使用map时，输出结果：
+
+![image.png](/images/2022-6-19/2022-6-19-8.png)
+
+例2：重写下上面 concat 的例2，输出相同的结果
+
+```js
+import { concat, defer, from, of } from 'rxjs'; 
+import { tap, concatAll } from 'rxjs/operators';
+
+console.log('Start')
+
+const promiseA$ = defer(() => from(new Promise((reslove, reject) => {
+  console.log('PromiseA is been Subscribed ')
+  setTimeout(()=>{
+    reslove('PromiseA')
+  }, 1000)
+})))
+
+const promiseB$ = defer(() => from(new Promise((reslove, reject) => {
+  console.log('PromiseB is been Subscribed ')
+  setTimeout(()=>{
+    reslove('PromiseB')
+  }, 1000)
+})))
+
+// 会依次间隔一秒打印Start, PromiseA, PromiseB
+of(promiseA$, promiseB$).pipe(tap(console.log), concatAll()).subscribe(x => console.log(x));
+```
+
+#### $4. mergeAll$
+
+mergeAll 不会像 concatAll 一样首尾相连输出值，其并行处理所有的 Observable，不保证输出顺序。
+
+![8.png](/images/2022-6-19/2022-6-19-9.png)
+
+#### $5. 衍生操作符 concatMap, mergeMap$
+
+concatMap, mergeMap 分别是 `map + concatAll` 和 `map + mergeAll` 的结合体。
+
+![9.png](/images/2022-6-19/2022-6-19-10.png)
+
+上面的实战例子，接受一个弹窗关闭事件，判断值是否为confirmed，若是，则交给 mergeMap处理。
+
+mergeMap是比较常用的请求数据的操作符，详细使用见官网：`<https://cn.rx.js.org/class/es6/Observable.js~Observable.html#instance-method-mergeMap>`
+
+下面是他的执行原理：
+![10.png](/images/2022-6-19/2022-6-19-11.png)
+上图中，算子穿了处理函数：10\*i，将两个流中的数相乘。可以看到类似于矩阵乘积的形式，分别相乘后输出。
+
+类似的，concatMap 是按照顺序排列的，使用场景更加广泛。每个新的内部 Observable 与先前的内部 Observable 首尾串联组成。他解决了 concat 和 concatAll 的一个问题：后一个数据流拿不到前一个数据流抛出的数据。
+
+> 注意： `concatMap`等效于 `mergeMap` 的并发参数设置 到 `1`。
+
+![WeChat6cbaa584dbb91a47061695335ded81c5.png](/images/2022-6-19/2022-6-19-12.png)
+
+我们还是使用上面 concat 的同一个例子，不过控制一下两个promise的先后顺序，让后一个promise获取前一个promise的数据：
+
+```js
+import { concat, defer, from } from 'rxjs'; 
+import { concatAll, map, tap } from 'rxjs/operators'; 
+
+console.log('Start')
+
+const promiseA$ = defer(() => from(new Promise((reslove, reject)=>{
+  setTimeout(() => {
+    reslove('PromiseA')
+  }, 1000)
+})))
+
+// 这是一个会返回数据流promiseB$的函数
+const promiseB = data => from(new Promise((reslove, reject)=>{
+  setTimeout(() => {
+    reslove(`${data} then PromiseB`)
+  }, 1000)
+}))
+
+// map会将把上游完成后的数据通过promiseB转换成promiseB$数据流
+// 并传递给concatAll, concatAll将promiseB$连接下游数据流
+// 这里将在两秒后打印出 PromiseA then PromiseB
+promiseA$.pipe(
+  map(promiseB),
+  concatAll()
+).subscribe(x => console.log(x))
+```
+
+我们使用 concatMap 改写：
+
+```js
+import { concat, defer, from } from 'rxjs'; 
+import { concatMap, map, tap } from 'rxjs/operators'; 
+
+console.log('Start')
+
+const promiseA$ = defer(() => from(new Promise((reslove, reject)=>{
+  setTimeout(() => {
+    reslove('PromiseA')
+  }, 1000)
+})))
+
+// 这是一个会返回数据流promiseB$的函数
+const promiseB = data => new Promise((reslove, reject)=>{
+  setTimeout(() => {
+    reslove(`${data} then PromiseB`)
+  }, 1000)
+})
+
+// concatMap 可以接收一个返回Promise的函数或者是数据流
+// 这里将在两秒后打印出 PromiseA then PromiseB
+promiseA$.pipe(
+  concatMap(promiseB)
+).subscribe(x => console.log(x))
+```
+
+可以看到，单单 concatMap 就可以让后一个数据流接受前面数据流的数据，其本质就是 map + concatAll。
+
+**concatMap 引申：**
+
+考虑一个实际的业务场景。我们有一个页面，页面初始化的时候有个初始化接口获取数据，页面上有个下一步按钮，这个按钮触发的事件需要使用初始化接口的数据。
+
+可以这样写：
+
+```js
+import { concat, defer, from, fromEvent } from 'rxjs'; 
+import { tap, concatMap } from 'rxjs/operators'; 
+
+// 使用promise来模拟数据请求过程
+const req$ = defer(() => from(new Promise((reslove, reject)=>{
+  setTimeout(() => {
+    reslove('This is init data')
+  }, 1000)
+})))
+
+// 事件流
+const button$ = () => fromEvent(document.getElementById('button'), 'click')
+
+// 点击按钮后输出请求内容
+// 这里会打印出 This is init data
+req$.pipe(
+  concatMap(button$, (data, event) => data)
+).subscribe(x => console.log(x))
+```
+
+concatMap接受异步请求的数据，然后传给 button 的点击事件 Observable 对象，通过该事件 Observable 对象来输出结果。处理事件时， concatMap 第二个参数就派上用场了。
+
+#### $6. 定时器$
+
+```js
+import { interval, timer } from 'rxjs';
+
+const test_interval = interval(1000);
+
+const test_timer = timer(1000, 5000);
+
+const test_timer = timer(1000);
+
+export {test_interval, test_timer}
+```
+
+interval会不停的按照间隔时间累加数字，从0开始。timer是一个定时器，只有一个参数时，在指定时间（毫秒）后输出一个0，两个参数时，比如上面的例子，指的是从第1秒开始，每隔5秒出书一个累加的值，从0开始。
+
+#### $7. 异常处理 throwError$
+
+```js
+import { throwError, interval, of } from 'rxjs';
+import { mergeMap } from 'rxjs/operators';
+
+interval(1000).pipe(
+mergeMap(x => x === 2
+    ? throwError('Twos are bad')
+    : of('a', 'b', 'c')
+    ),
+).subscribe(x => console.log(x), e => console.error(e));
+```
+
+上面的例子中，使用算子 throwError抛出错误，抛出后，订阅停止。
+
+#### $8. zipAll$
+
+下图中，zipAll 将 from 操作符解构出的流式数据又拼接回数组形式。
+
+![12.png](/images/2022-6-19/2022-6-19-13.png)
+
+#### $9. group 与 reduce$
+
+类似 SQL 中的 groupBy，接受一个函数，返回要group的对象key值。
+
+![13.png](/images/2022-6-19/2022-6-19-14.png)
+
+解开 tap的注释后，可以看到打印的输出：
+
+![image.png](/images/2022-6-19/2022-6-19-15.png)
+
+reduce用来聚合Observable中的数值。
+
+#### $10. distinct$
+
+去重算子。
+
+使用RxJs来数组去重：
+
+![14.png](/images/2022-6-19/2022-6-19-16.png)
+
+#### $11. takeUtill$
+
+直到提供的 observable 发出值，它便完成
+
+例1：
+
+![15.png](/images/2022-6-19/2022-6-19-17.png)
+
+> 思考：是不是可以用来 防抖节流 呢
+
+例2：直到用户点击后，开启定时器
+
+![16.png](/images/2022-6-19/2022-6-19-18.png)
+
+#### $12. takeLast$
+
+取流数据的最后一个（同理，有 take(index: number)函数来正向指定下标获取）
+
+![17.png](/images/2022-6-19/2022-6-19-19.png)
+
+#### $13. 专用的防抖节流$
+
+上面说可以用takeUtils模拟防抖节流，其实Rxjs有专用的防抖节流函数。
+
+```js
+import { debounceTime, throttleTime } from 'rxjs';
+
+Observable.fromEvent(document.getElementById("debounceTime"), "click")
+    .debounceTime(1000)
+    .subscribe(() => console.log("debounceTime"));
+    
+Observable.fromEvent(document.getElementById("throttleTime"), "click")
+    .throttleTime(1000)
+    .subscribe(() => console.log("throttleTime"));
+```
+
+#### $14. Subject 对象$
+
+Subject继承自Observable类，同样具有数据流监听特性，其作为observable的一种载体，多用于组件之间传递。
+
+可以推送(next)和被订阅(subscribe)
+
+![18.png](/images/2022-6-19/2022-6-19-20.png)
+
+BehaviorSubject：每个新的订阅可以拿到管道中最新的那次数据
+
+![19.png](/images/2022-6-19/2022-6-19-21.png)
+
+AsyncSubject：complete时会输出最新的管道数据，其余时间不输出
+
+![20.png](/images/2022-6-19/2022-6-19-22.png)
+
+ReplaySubject：每次新订阅时，可指定获取管道中最新的N个数据
+
+![21.png](/images/2022-6-19/2022-6-19-23.png)
+
+> 引申阅读，数百个操作符： http\://[reactivex.io/documentation/operators.html](http://reactivex.io/documentation/operators.html)
+
+## 5. 应用场景
+
+1.  多事件界面
+2.  更加复杂的交互场景，尤其是需要组件间多级传递的情况
+3.  需要源源不断的流出数据的场景
+
+## 6. 与 Promise 对比
+
+共同点：
+
+1.  处理异步
+
+例1：
+
+![22.png](/images/2022-6-19/2022-6-19-24.png)
+
+例2：
+
+![23.png](/images/2022-6-19/2022-6-19-25.png)
+
+不同：
+
+1.  设计理念不同（发布订阅、观察者+pipe）
+2.  中途取消
+
+在上面异步处理的例子中，可以选择取消定时器：即取消订阅
+
+![24.png](/images/2022-6-19/2022-6-19-26.png)
+
+3.  完善的函数工具
+
+## 7. 与 React 结合
+
+示例：组件间传递消息
+
+父组件：声明一个 subject，通过 prop 传递给 子组件
+
+![25.png](/images/2022-6-19/2022-6-19-27.png)
+
+![26.png](/images/2022-6-19/2022-6-19-28.png)
+
+子组件：接受该 subject，然后往里边推送值。同理，父组件也可以推送，子组件来监听。如此达到 父子组件 全双工通信。
+
+![27.png](/images/2022-6-19/2022-6-19-29.png)
+
+点击子组件的三个按钮，就会看到父组件的订阅触发了！
+
+![28.png](/images/2022-6-19/2022-6-19-30.png)
+
+点击后会有相应输出，比如：
+
+```
+1
+2
+3
+3
+```
+
+推荐项目：`<https://github.com/LeetCode-OpenSource/rxjs-hooks>`
+
+<hr />
+
+参考：
+
+*   [Rxjs Github](https://github.com/ReactiveX/rxjs)
+*   [ReactiveX 官网](https://reactivex.io/)

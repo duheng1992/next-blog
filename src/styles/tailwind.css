@@ -20,6 +20,10 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  overscroll-behavior-x: none;
+}
+
 .dropdown {  
   position: relative;  
   display: inline-block;  
