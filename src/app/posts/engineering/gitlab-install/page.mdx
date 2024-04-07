@@ -1,0 +1,270 @@
+# Gitlab安装与仓库管理
+---
+
+在团队代码私有仓库中，互联网公司中gitlab应该是首选的，不仅仅是个仓库，其支持私有化部署和具备独有的CI/CD，优势明显。gitlab 有免费的社区版（CE）也有收费的企业版（EE），国内还有极狐版（JH）。本文以 CE 为例讲解。
+
+本文介绍如何在服务器（以centOS7为例）上安装gitlab，并实现web端账号配置与ssh配置仓库。
+
+> 国内可以使用 gitlab 在国内的代理 [极狐](https://gitlab.cn/install/) 来安装，很多设置都已经做好了，也不存在网络问题，可以省去很多繁重的配置工作。本文还是以清华的镜像源为例。
+
+## 1. 安装前检查
+
+在安装前，可以检查一下是否安装有旧版本，卸载掉他！
+
+按顺序执行如下指令：
+
+```shell
+## 停止gitlab
+gitlab-ctl stop
+
+## 卸载 (请确定版本`ce/ee/jh`等。若找不到包说明上次没有安装成功)
+rpm -e gitlab-ce
+
+## 检查一下进程
+ps aux | grep gitlab
+```
+
+
+![image.png](/images/2022-12-24/2022-12-24-1.png)
+
+```shell
+## 清除掉 service 的进程
+kill -9 9956
+
+## 删除所有包含gitlab文件 （递归查找有些慢，可以不做）
+find / -name gitlab | xargs rm -rf
+```
+
+## 2. 安装
+
+- 操作系统：CentOS7
+- gitlab：GitLab-ce 清华源镜像 （gitlab-ce-11.5.3-ce.0.el7.x86_64.rpm）
+
+### 前置安装
+
+在系统防火墙中打开 HTTP、HTTPS 和 SSH 访问。如果打算仅从本地网络访问极狐GitLab，则可以跳过它。
+
+```shell
+## 全部粘贴一起丢到终端里
+sudo yum install -y curl policycoreutils-python openssh-server perl
+sudo systemctl enable sshd
+sudo systemctl start sshd
+
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-service=https
+sudo systemctl reload firewalld
+```
+
+ssh配置：
+
+```shell
+sudo yum install curl policycoreutils openssh-server openssh-clients
+```
+
+配置邮件通知（可选）
+
+```shell
+sudo yum install postfix
+sudo systemctl enable postfix
+sudo systemctl start postfix
+```
+
+修改邮件配置：vi /etc/postfix/main.cf
+
+```shell
+inet_interfaces = all            //之前应该是localhost
+```
+
+启动 postfix：
+
+```shell
+service postfix start
+systemctl status postfix.service
+sudo systemctl enable postfix
+```
+
+由于国内 wget速度较慢，可以使用 mwget：(这一堆丢到终端里)
+
+```shell
+wget http://jaist.dl.sourceforge.net/project/kmphpfm/mwget/0.1/mwget_0.1.0.orig.tar.bz2
+yum install bzip2 gcc-c++ openssl-devel intltool -y
+bzip2 -d mwget_0.1.0.orig.tar.bz2
+tar -xvf mwget_0.1.0.orig.tar 
+cd mwget_0.1.0.orig
+./configure 
+make
+make install　
+```
+
+### 下载与安装 gitlab
+
+下载镜像源：
+
+```shell
+mwget https://mirrors.tuna.tsinghua.edu.cn/gitlab-ce/yum/el7/gitlab-ce-11.5.3-ce.0.el7.x86_64.rpm
+```
+
+安装：
+
+```shell
+rpm -i gitlab-ce-11.5.3-ce.0.el7.x86_64.rpm
+```
+我这里出现了磁盘空间不足的问题：
+
+![image.png](/images/2022-12-24/2022-12-24-2.png)
+
+看了一下，一共使用了 6G：
+
+![image.png](/images/2022-12-24/2022-12-24-3.png)
+
+查看可用空间：
+
+![image.png](/images/2022-12-24/2022-12-24-4.png)
+根路径下只剩5G不到了，清理了删除后未释放磁盘的文件后再试。
+
+耐心等待后会有安装成功提示
+
+
+![image.png](/images/2022-12-24/2022-12-24-5.png)
+
+此时查看gitlab版本：
+
+```shell
+cat /opt/gitlab/embedded/service/gitlab-rails/VERSION
+
+## 11.5.3
+```
+> 也可以使用 docker 安装：https://docs.gitlab.cn/jh/install/docker.html
+
+## 3. 安装后配置
+
+### 重置root账户
+
+编辑 `/etc/gitlab/gitlab.rb`（如果不存在则创建）并设置：
+
+```shell
+gitlab_rails['initial_root_password'] = 'passport'
+```
+同目录下的 initial_root_password 也修改一下，如果有的话。当然也可以重置密码：
+
+```shell
+## 1. 获取管理员权限
+sudo su
+## 2. 进入控制台
+gitlab-rails console production
+## 3. 查找root用户
+user = User.where(id: 1).first
+## 4. 设置
+user.password = 'passport' #设置新的密码
+user.password_confirmation = 'passport'  #确认密码
+## 5. 保存
+user.save!
+## 当发现=> true时表示重置成功
+
+## 6. 退出
+ctrl+d or exit
+```
+
+### 配置web URL
+编辑 `/etc/gitlab/gitlab.rb`
+
+```shell
+## 配置本机ip可访问的地址
+external_url "http://127.0.0.1:10086"
+```
+
+最后生效配置：
+
+```shell
+gitlab-ctl reconfigure
+```
+
+查看状态
+
+```shell
+gitlab-ctl status
+```
+
+## 4. Web 访问
+
+浏览器里打开刚刚配置的 url 地址：
+
+
+![image.png](/images/2022-12-24/2022-12-24-6.png)
+
+> 如果出现了 502 错误，可能是端口被占用了，也可能是内存不足了
+
+输入配置好的密码：
+- root/password
+
+进入界面：
+
+
+![image.png](/images/2022-12-24/2022-12-24-7.png)
+
+## 5. 客户端访问
+
+### 设置 CentOS 外部可访问：
+
+执行指令：
+
+```shell
+iptables -F  
+iptables -P INPUT ACCEPT（设置默认允许规则）
+```
+配置防火墙，允许10086端口访问：
+
+```shell
+## /etc/sysconfig/iptables-config
+
+## 添加
+-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 10086 -j ACCEPT
+```
+开放端口：
+```shell
+firewall-cmd --zone=public --add-port=10086/tcp --permanent
+```
+
+
+如果是真实的物理机，只要在一个局域网下稍作配置便可以访问，我这里使用的虚拟机搭建的 CentOS 环境，所以需要如下配置：
+
+
+![image.png](/images/2022-12-24/2022-12-24-8.png)
+
+虚拟机编辑里的虚拟网络编辑器中打开NAT设置中的添加：（虚拟机操作系统ip：192.168.137.128）
+
+![image.png](/images/2022-12-24/2022-12-24-9.png)
+
+然后在 windows 的防火墙配置里添加虚拟机的IP即可。
+
+> 注意：一定要选择 VWnet8 网络
+
+windows 下访问：
+
+
+![image.png](/images/2022-12-24/2022-12-24-10.png)
+
+第一部分就完成了。
+
+-----
+
+## 6. 用户管理与仓库管理
+
+1. 创建一个用户：直接使用界面的注册表单填写即可。
+2. 使用该用户创建一个仓库：
+
+![image.png](/images/2022-12-24/2022-12-24-11.png)
+
+3. 此时已经看到提示了，我们配置一下 sshkey，配置过程省略，大家都会。
+
+![image.png](/images/2022-12-24/2022-12-24-12.png)
+
+4. 在本地创建一个 vue 项目。
+
+5. 将该仓库推送至远端仓库后，查看界面：
+
+
+![image.png](/images/2022-12-24/2022-12-24-13.png)
+
+
+介绍就到这里啦！有感兴趣的可以关注下期 CI/CD 的配置。谢谢！！

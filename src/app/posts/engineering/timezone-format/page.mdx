@@ -1,0 +1,184 @@
+# 前端时间国际化的一种解决方案
+----
+
+> 有分享才有进步，欢迎大家批评指正
+
+最近在开发一个国际站项目，涉及到的任务流转可能会跨多个国家和地区，这就涉及到时间差的问题了。本文就来梳理一下我在实际开发中涉及到的前端时区的逻辑处理方案。
+
+## 1. 实际业务场景
+
+在 Asia/shanghai 时区下创建定时流转任务时，产品会有要求：设置为迪拜时间的 `2023-06-24 23:00:00` 点触发任务流程，这就牵扯到时区转换的问题；同时，在 Asia/shanghai 时区下创建的任务，在世界其他各个时区下看到的应该是不同的时间，但是这里需要格式化为同一个时间（创建地的）格式，并标明 `UTC +8`。
+
+> 我们来举个近一点的例子： 拿东京举例，是 `UTC+9` 时区，比我们快了一个时区。如果在 Asia/shanghai 时区下选择了设定在东京的 `2023-06-24 00:00:00` 下触发，那么这个时间以东京时间格式化为时间戳后，在上海本地格式化，应该是 `2023-06-23 23:00:00`
+
+基于上面的业务场景，我这里给出了几种处理方案：
+
+## 2. 方案一、后端调整时区
+
+可以直接把选择的时间字符串 `2023-06-24 00:00:00` 和需要设置的当地时间的时区 `Asia/Tokyo` 给到后端，后端来根据时区将时间字符串格式化为相对于东京的时间戳。
+
+以 Go 为例，time 包下就有按照时区格式化的函数：
+
+```go
+layout := "2006-01-02 15:04:05"
+value := "2023-06-24 00:00:00"
+location := time.LoadLocation("Asia/Tokyo")
+t := time.ParseInLocation(layout, value, location)
+
+fmt.Println("Parsed time:", t.unix())
+```
+
+这样就能在数据库里存下所选时间的时区和绝对的时间戳了。
+
+这时你会问，那么我前端如何获取到 `Asia/Tokyo` 这个正确的时区格式给到后端呢？
+
+1. 使用 moment-timezone 库
+
+```js
+import moment from 'moment-timezone';
+
+moment.tz.names(); // ["Africa/Abidjan", "Africa/Accra", "Africa/Addis_Ababa", ...]
+```
+
+选择完时区后，可以通过 `const zone = moment.tz.zone('Asia/Tokyo');` 来获取时区对象，对象里便有了 offset 等信息。
+
+实际在项目落地中，moment库比较大，一般使用 dayjs 代替，但是 dayjs 中没有相关的时区 API，所以这个时区列表，我在本地使用 moment 获取到以后做了本地的特殊格式化，并作为静态文件挂载在 CDN 上了，数组结构如下：
+
+```js
+[
+  {
+    value: 'Japan Standard Time',
+    abbr: 'JST',
+    offset: 9,
+    isdst: false,
+    text: '(UTC+09:00) Osaka, Sapporo, Tokyo',
+    UTC: ['Asia/Dili', 'Asia/Jayapura', 'Asia/Tokyo', 'Etc/GMT-9', 'Pacific/Palau']
+  },
+  {
+    value: 'China Standard Time',
+    abbr: 'CST',
+    offset: 8,
+    isdst: false,
+    text: '(UTC+08:00) Beijing, Chongqing, Hong Kong, Urumqi',
+    UTC: ['Asia/Hong_Kong', 'Asia/Macau', 'Asia/Shanghai']
+  },
+  // ...
+]
+```
+
+上面的 offset 是相对于 UTC 标准时区的偏差，该值可以从 moment 的 zone 对象中获取。
+
+> Zone 对象里 offsets 常见的有 PST 时区 和 PDT 时区，前者为太平洋标准时间（英文：*Pacific Standard Time*，縮寫：*PST*），UTC-8；后者为夏令时间（夏季）称为太平洋夏令时間（英文：Pacific Daylight Time，縮寫：*PDT*），UTC-7；使用其中一个，根据偏差做加减即可。
+
+2. 使用原生的 Intl 对象
+
+如果不需要交互选择时区列表，只是在页面上根据当地时区格式化时间戳，可以使用js原生的 Intl 对象：
+
+```js
+const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+console.log(timeZone); // Asia/Shanghai
+```
+
+而且该方法的兼容性目前已经比较好了：
+
+
+![image.png](/images/2023-6-26/2023-6-26-1.png)
+
+这样在中国的页面上这样显示：
+
+```
+(Asia/Shanghai UTC +8) 2023-06-23 23:00:00
+```
+
+在日本的页面这样显示：
+
+```
+(Asia/Tokyo UTC +9) 2023-06-24 00:00:00
+```
+
+## 3. 方案二、前端格式化为时间戳
+
+这种方案不依赖后端，前端选择时区，前端转换为绝对值时间戳给到后端。获取时区列表的方式参见方案一。这里我们使用手动时区转换的思路，获取到应该转换为上海时间的时间字符串，即，将 `2023-06-24 00:00:00` 转换为 `2023-06-23 23:00:00`。
+
+在获取到时区 `timeZoneOffset` （这里是 9） 和 时间字符串 `time` （这里是 2023-06-24 00:00:00）后，前端按照当地时间模拟时区变化来处理：
+
+```js
+// 模拟转换为标准 UTC 时间，这里减去9个小时即可
+const UTC = dayjs(time).add(-timeZoneOffset, 'hour');
+// 获取浏览器当地时间的小时差，offsetHours 如果在上海，就是 8
+const date = new Date();
+const offsetHours = -(date.getTimezoneOffset() / 60);
+// 将上面的 UTC 加上浏览器本地的时差 
+const result = dayjs(UTC).add(offsetHours, 'hour');
+```
+
+通过上述操作，就将东京时间的 `2023-06-24 00:00:00` 转换为上海时区的 `2023-06-23 23:00:00`，此时在将这个 result 转换为时间戳即可：
+
+```js
+result.unix() // 1687532400
+```
+
+
+## 4. 方案三、dayjs格式化为时间戳
+
+该方案为方案二的变种，只是不用原生操作时区差来计算，而是使用 dayjs 内置的方法替代之：
+
+```js
+const d = dayjs.tz('2023-06-24 00:00:00', 'Asia/Tokyo')
+console.log(d.format()) // 2023-06-24T00:00:00+09:00
+console.log(d.unix()) // 1687532400
+```
+
+
+![image.png](/images/2023-6-26/2023-6-26-2.png)
+
+该方法的前提是引入时区插件：
+
+```js
+import timezone from 'dayjs/plugin/timezone';
+
+dayjs.extend(timezone);
+```
+
+这种方案的缺点是必须提前传入时区字符串。方案二不需要任何条件，只需要知道是 UTC 几的时区就可以了。
+
+## 5. 逆向：时间戳展示为给定时区的时间
+
+上面讲了怎么把本地时间选择器选中的指定时区的时间（dayjs）按照所选时区格式化为时间戳。下面说的是他的逆向：怎么从时间戳格式化为所在时区的时间字符串。
+
+> 比如时间戳：1688439600，他在北京时间是 2023-7-4 11:00:00，在东京时间（UTC +9）应该快一个小时
+
+按照上边的例子，我们可以对比浏览器所在时区和给定 offset 的差值来比对，进而将时间加或者减对应的小时数即可：
+
+```js
+// 传入 1688439600，9
+export const showWithTimeZone = (timestamp, timeZoneOffset) => {
+  if (typeof timeZoneOffset === 'number') {
+    const date = new Date();
+    const offsetHours = -(date.getTimezoneOffset() / 60);
+
+    // 给定时区与浏览器本地时区的差异
+    const offset = timeZoneOffset - offsetHours;
+    // 直接加法即可，如果时区快，就是正数，否自是负数
+    const result = dayjs(timestamp * 1000).add(offset, 'hour');
+
+    return {
+      format: `(UTC ${timeZoneOffset > 0 ? '+' + timeZoneOffset : timeZoneOffset + ''}) ${result.format('YYYY-MM-DD HH:mm:ss')}`
+    };
+  }
+};
+```
+
+如此，在界面就会看到：
+
+
+![image.png](/images/2023-6-26/2023-6-26-3.png)
+
+## 6. 总结
+
+个人使用的是方案三和方案一的结合，获取到时区列表并缓存CDN后，前端选择时区并转换为绝对值时间戳，后端进行二次校验并在列表显示的地方格式化为字符串返回。
+
+> 需要注意的是，网上获取到的时区偏移可能会有延迟（有些城市会不停调整时区），比如柏林的时区，我在列表里的是 +1，但是网上搜到的最新消息是 GMT+2 的，但是今年10月份又会调回 +1。我这里就还以moment获取的数据为准了。
+
+
+![image.png](/images/2023-6-26/2023-6-26-4.png)

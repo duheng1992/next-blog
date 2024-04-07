@@ -1,0 +1,262 @@
+# 使用 Docker + Nginx 部署前端项目
+---
+
+前端项目除了目前的纯单页应用，还有SSR的应用，例如 nuxt 和 nextjs，其区别在于前者是单独的前端页面部署，而后者使用了一个内部的 node 小型服务器来做到服务器页面直出的效果。
+
+下面我们就针对这两种常见的前端项目，讲讲他们上线部署的流程。
+
+## 1. 部署单页应用
+
+
+单页应用，一般使用一种或多种前端框架，在发布上线时，一般会打包（webpack + babel）为最优化的静态资源，然后使用单独的服务器（nginx）来挂载该资源。
+
+- 首先我们来打包资源
+
+假设我们的项目叫 ops，其中 package.json 是这么写的：
+
+```sh
+"build": "react-scripts build",
+```
+
+在项目根目录中写一个脚本用于打包文件：build.sh：
+
+```sh
+## 打包的脚本（只展示必要步骤）
+#!/usr/bin/env bash
+
+## 接受 ENV
+env=$1
+
+## 这里可以区分开发和线上的不同env配置文件，一般是请求的资源和API的url不同
+if [ $env = "pre" ];then
+    cp .env_pre .env
+elif [ $env = "prod" ];then
+    cp .env_prod .env
+else
+    exit 1
+fi
+
+# yarn打包
+yarn build
+
+# 打包docker镜像
+# 默认推送到 hub.xxx.com/ops
+
+time=$(date "+%Y%m%d%H%M%S")
+tag="$time"
+
+app_name=ops"_""$env"
+default_registry=hub.xxx.com
+default_project=ops
+default_user=admin
+default_pwd=xxxxxxxx
+dockerfile=Dockerfile
+nginx_conf="./scripts/nginx_""$env"".conf"
+
+echo $(date "+%Y-%m-%d %H:%M:%S")-开始制作镜像
+docker build --platform linux/amd64 --rm --build-arg NGINX_CONF=$nginx_conf -t $app_name:latest . 
+echo $(date "+%Y-%m-%d %H:%M:%S")-镜像制作完成
+
+echo $(date "+%Y-%m-%d %H:%M:%S")-开始打tag
+docker tag $app_name:latest $default_registry/$default_project/$app_name\:$tag
+echo $(date "+%Y-%m-%d %H:%M:%S")-打tag完成
+
+echo $(date "+%Y-%m-%d %H:%M:%S")-开始push镜像
+docker login -u $default_user -p $default_pwd $default_registry
+docker push $default_registry/$default_project/$app_name\:$tag
+echo $(date "+%Y-%m-%d %H:%M:%S")-push镜像完成
+
+echo $(date "+%Y-%m-%d %H:%M:%S")-删除本地镜像
+docker rmi $app_name\:latest
+docker rmi $default_registry/$default_project/$app_name\:$tag
+
+echo "执行发布脚本请输入tag："
+echo $tag
+```
+其中 docker 的登录用户名密码需要自己配置即可。 Dockerfile如下：
+
+```
+FROM nginx:1.19.1
+ARG NGINX_CONF=""
+
+# 服务器上资源的地址
+WORKDIR /data/ops
+
+# 往目录里拷贝打包的文件夹 build，这是最关键的一步
+ADD build build
+
+# 这里在docker里执行了nginx配置，这里不使用默认配置
+COPY ./scripts/run.sh ./
+COPY "${NGINX_CONF}" /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+ENTRYPOINT ["sh", "./run.sh"]  
+```
+上边执行的 run.sh 脚本我这里是从客户端拷贝到了服务器上，当然也可以直接写在服务器中，其作用是启动docker镜像上的 nginx（安装目录 /etc/init.d/nginx，nginx配置这里省略）。run.sh 如下：
+
+```sh
+#!/usr/bin/env bash
+
+#start udnr web...
+/etc/init.d/nginx start
+```
+
+其中本地的 nginx配置文件 `nginx_conf="./scripts/nginx_""$env"".conf"` 是用于 docker 容器内部的 nginx，覆盖默认配置。这里我配置了服务的请求路径以及开发环境和生产环境的请求API地址的反向代理，这里不过多展开：
+
+```sh
+## ./scripts/nginx_prod.conf 为例
+upstream dashboard {
+    server 10.69.164.xxx:21001;
+}
+
+...
+
+location / {
+    try_files   /index.html =404;
+    root        /data/ops/build;
+}
+
+location ~ .*.(js|gif|png|map|jpg|css|ico|html|less)$ {
+    root            /data/ops/build;
+    proxy_redirect  off;
+    expires         30d;
+    error_page 405  =200 http://$host$request_uri;
+}
+
+location /dashboard {
+    proxy_pass         http://dashboard/;
+    proxy_set_header   Host $Host;
+}
+```
+
+build.sh 脚本执行完毕后，会生成一个挂载了项目build资源的Docker镜像，并输出了其 Tag。
+
+- 接下来我们来部署这个 docker 镜像
+
+刚刚的操作都是在客户端操作的（可以手动执行脚本，也可以写在CI里）。现在我们登录服务器：
+
+```sh
+ssh root@172.xx.xxx.72
+
+cd /data/ops/
+```
+
+其中 deploy.sh：
+
+```sh
+#!/bin/bash
+if [ ! -n "$1" ]
+then
+echo "You should give me a image tag."
+else
+echo "The image tag is $1"
+
+oldtag=`cat .env`
+
+## 获取上一次成功的tag，便于在打包失败时及时回退
+echo "The old image tag is $oldtag"
+
+path=$(pwd)
+
+# 记录新的tag到容器的.env中
+sed -i "s/$oldtag/TAG=$1/g" $path/.env
+
+# docker-compose config
+docker login -u ops -p 你的密码 hub.xxx.com
+# 重新启动容器，因为 build 文件夹替换了，所以是最新的打包信息
+docker-compose up -d
+
+fi
+```
+
+现在在服务器上执行：
+
+```sh
+sh deploy.sh tag名称
+```
+此时在服务器上就启动起来了一个前端单页应用了，可以通过ip+端口号来访问了。
+
+
+## 2. 部署SSR应用
+
+SSR前端框架我们以 nextjs 为例来讲一下如何与 docker 结合部署。
+
+- 首先来部署打包应用
+
+假设项目的 package.json是这么写的：
+
+```json
+"scripts": {
+    "build": "next build --profile",
+    "start": "next start",
+}
+```
+nextjs部署到服务器时，需要先 `yarn build`，然后在打好包的 .next 同目录上执行 `yarn start` 以此来启动一个小型的SSR直出服务器。
+
+明白了这个后，我们首先来打包。打包的操作除了写在shell里，也可以直接写在 Dockerfile 里：
+
+```
+# 安装一些linux系统必须的依赖和配置环境，并为下一步build安装node_modules
+FROM node:16-alpine AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package.json yarn.lock ./
+RUN yarn install --frozen-lockfile
+
+# 拷贝打包需要的资源，执行build。默认的，build完后，当前目录下会有一个.next目录生成
+FROM node:alpine AS builder
+WORKDIR /app
+COPY . .
+COPY --from=deps /app/node_modules ./node_modules
+RUN yarn build && yarn install --production --ignore-scripts --prefer-offline
+
+# 添加用户组
+FROM node:alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nextjs -u 1001
+
+# 打包以后，一些配置文件在打包的目录下没有，需要手动copy
+COPY --from=builder /app/next.config.js ./                      # next的配置文件
+COPY --from=builder /app/next-i18next.config.js ./              # 如果需要next-i18next支持，这里也需要拷贝自己在根目录放置的配置文件
+
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public  # 公共资源
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next    # 打包后的源代码
+COPY --from=builder /app/node_modules ./node_modules            # 安装好的依赖
+COPY --from=builder /app/package.json ./package.json            # 包信息
+```
+
+可以看到 docker 是很强大的，一个文件就把依赖安装、build和资源拷贝完成了。
+
+- 接下来是启动打包的项目
+
+由于nextjs内置的node服务，直接可以 `next start` 启动，故不需要额外配置 nginx。可以在上边的Dockerfile 里追加启动的指令：
+
+```
+# 使用刚刚添加的用户
+USER nextjs
+
+# 暴露docker端口3000
+EXPOSE 3000
+
+ENV PORT 3000
+
+# 执行 yarn start
+CMD ["yarn", "start"]
+```
+到此，一个 nextjs 应用就在服务器的 3000 端口启动起来了。
+
+
+----
+
+
+流程总结如下：
+
+1. 使用docker或者shell进行打包，获取打包的资源文件目录
+2. 将资源文件、配置项、依赖等拷贝到docker容器中自定义的工作目录下
+3. 在docker该工作目录下执行指令启动docker中的nginx或者其他的服务器
+
+到这里，前端项目部署就完成了，是不是很简单？如果想要看与CI/CD结合的自动化部署流程，可以看我之前讲述 gitlab CI 的文章。
+

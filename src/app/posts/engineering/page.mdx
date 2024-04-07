@@ -29,6 +29,31 @@ import { Guides } from '@/components/Guides'
     name: '开始使用 Mobx 吧！',
     description: '小肚教你快速上手 Mobx',
   },
+  {
+    href: '/posts/engineering/gitlab-install',
+    name: 'Gitlab安装与仓库管理',
+    description: '小肚教你快速安装Gitlab',
+  },
+  {
+    href: '/posts/engineering/gitlab-cicd',
+    name: 'Gitlab CI/CD + Nginx 实现自动化集成构建与部署',
+    description: '小肚教你快速上手Gitlab',
+  },
+  {
+    href: '/posts/engineering/nginx-start',
+    name: '前端Nginx配置指北 + HTTPS安全原理',
+    description: '小肚教你快速上手Nginx',
+  },
+  {
+    href: '/posts/engineering/docker-nginx',
+    name: '使用 Docker + Nginx 部署前端项目',
+    description: '小肚教你快速部署前端项目',
+  },
+  {
+    href: '/posts/engineering/eslint-start',
+    name: 'ESLint配置项详解，并将配置打包npm',
+    description: '小肚教你快速上手 eslint',
+  },
 ]} />
 
 ## Rxjs {{ tag: 'rxjs', label: '基本知识', id: 2 }}
@@ -38,5 +63,45 @@ import { Guides } from '@/components/Guides'
     href: '/posts/engineering/rxjs',
     name: 'RxJs使用指北',
     description: 'RxJS（Reactive Extensions for JavaScript）是一个基于可观测数据流（Stream）结合观察者模式和迭代器模式的一种异步编程的应用库。',
+  },
+]} />
+
+## 版本管理 {{ tag: 'version', label: '版本', id: 3 }}
+
+<Guides guides={[
+  {
+    href: '/posts/engineering/npm-version',
+    name: '如何使用npm发布包的测试版和正式版',
+    description: '小肚教你快速上手 npm 发布',
+  },
+  {
+    href: '/posts/engineering/stark-start',
+    name: '写一个简易的前端灰度系统',
+    description: '小肚教你快速上手灰度发布',
+  },
+  {
+    href: '/posts/engineering/version-404',
+    name: '针对前端发布新版本后用户页面资源丢失问题的解决方案',
+    description: '小肚教你快速发布新版本前端项目',
+  },
+]} />
+
+## 时间格式化 {{ tag: 'time', label: '时间处理', id: 4 }}
+
+<Guides guides={[
+  {
+    href: '/posts/engineering/timezone-format',
+    name: '前端时间国际化的一种解决方案',
+    description: '时间时区格式化的一种解决方案',
+  },
+]} />
+
+## 前端存储杂谈 {{ tag: 'storage/cookie', label: '前端存储', id: 5 }}
+
+<Guides guides={[
+  {
+    href: '/posts/engineering/cookie-share',
+    name: '前端项目部署不同域名间共享cookie的方案',
+    description: '开发环境与https的测试环境公用cookie的方案',
   },
 ]} />

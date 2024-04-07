@@ -221,7 +221,7 @@ export function Navigation(props) {
       <ul role="list">
         <TopLevelNavItem href="https://duheng1992.github.io/monto-color/">配色方案</TopLevelNavItem>
         <TopLevelNavItem href="https://dh1992.gitee.io/dux-ui-react/">DUX UI</TopLevelNavItem>
-        <TopLevelNavItem href="#">微服务框架</TopLevelNavItem>
+        <TopLevelNavItem href="https://chromewebstore.google.com/detail/chrome-bookmark/ilcmekmgeldhckdembghkiohkdffihpe?hl=zh-CN&utm_source=ext_sidebar">谷歌书签-威力加强版 v0.1.0</TopLevelNavItem>
         {navigation.map((group, groupIndex) => (
           <NavigationGroup
             key={group.title}

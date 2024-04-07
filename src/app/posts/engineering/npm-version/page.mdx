@@ -1,0 +1,154 @@
+# 如何使用npm发布包的测试版和正式版
+---
+
+最近在开发自己自建的类库和组件库，涉及到各种包版本的管理问题。在这里记录一下我是怎么管理自己自己开发库的版本的。
+
+
+## 1. 需要解决的问题
+
+1. 同一套类库需要发布不同的可安装版本
+2. 需要区分稳定版和测试版
+
+
+## 2. 建立一个库
+
+我这个库是给内部微服务控制台提供公共依赖的，用于统一管理依赖的版本。目录一结构如下：
+
+![image.png](/images/2022-12-1/2022-12-1-1.png)
+
+实现功能很简单，通过在项目中安装这个库，可以获得一套完整的依赖包和webpack配置文件，辅助以 cli 命令行工具加持，就可以起到同时管理 公共依赖和webpack公共配置的效果。
+
+接下来看看在子应用中的使用：
+
+
+![image.png](/images/2022-12-1/2022-12-1-2.png)
+
+接着只需 yarn 一下就可以安装上依赖了。由于本期讲的是这个包如何发布不同的版本，故上述配置不做详细说明，如果有对 前端命令行工具（cli）感兴趣的，可以期待我后期的文章。
+
+## 3. 打一个版本
+
+执行如下指令：
+
+```shell
+# 可选 (minor / major)
+npm version patch
+```
+这个想必大家都知道，npm 包的版本是三段式的，中间以 . 隔开，从左往右分别是 major(主版本)、minor（小版本）、patch（补丁包）。
+
+执行完指令后可以看到版本号的第三段自增了：
+
+
+![image.png](/images/2022-12-1/2022-12-1-3.png)
+
+接下来发布npm，这里需要提前登录npm，大家都会，不做过多讨论，网上很多说明了：
+
+```shell
+npm publish
+```
+
+发布完以后，你所配置的npm仓库里就有了你这个项目的版本了。
+
+接下来在其他项目根目录里：
+
+```shell
+yarn add -D @xxx/xxx-console-dev-libs
+```
+如此便安装了一个正式发布的版本了。
+
+## 4. 正式版与测试版
+
+### 正式版
+
+我们在一个新创建的纯净项目里执行如下指令查看当前项目全部npm版本：
+
+```shell
+npm dist-tag ls
+```
+可以看到如下显示：
+
+![image.png](/images/2022-12-1/2022-12-1-4.png)
+
+latest版本就是我们在上边发布的那种正式版，默认安装时不需要带着版本号，默认会去拿 latest。那如果需要安装往期的正式版本，可以如下：
+
+```shell
+yarn add @xxx/xxx-console-dev-libs@1.0.8
+```
+
+### 测试版
+
+npm 会有内置的代表版本测试的名称符号。一个软件在正式发布前，都会有 `alpha`, `beta` 版，分别代表内测版和公测版，npm包也是软件，也不例外。
+
+如果类库开发到某一个程度，想让内部的人试一下，又不想影响自动化部署中安装的版本的话，可以这样：
+
+```shell
+npm version 1.0.13-alpha.0
+
+npm publish --tag alpha
+```
+
+此时 package.json 中的版本会变成：
+
+![image.png](/images/2022-12-1/2022-12-1-5.png)
+
+这便是一个内测版了，内测用户执行如下指令便可以安装 alpha 的最新测试版：
+
+```shell
+yarn add @xxx/xxx-console-dev-libs@alpha
+```
+
+内测版也可以更新：
+
+```shell
+npm version prerelease --preid alpha
+
+npm publish --tag alpha
+```
+
+可以看到版本也是递增的：
+
+![image.png](/images/2022-12-1/2022-12-1-6.png)
+
+同理，公测版也一样：
+
+```shell
+// 打版本
+npm version 1.0.13-beta.0 
+// 打tag
+npm publish --tag beta
+// 更新版本
+npm version prerelease --preid beta
+```
+
+> 上面打 tag 是为了 npm dist-tag 能够查到对应的版本，以此来区分安装。参数 preid 表示预发的是alpha/bata的测试版
+
+最后别忘了 git 推送的时候打上 tag，这样便于管理：
+
+```shell
+git push --tags
+```
+
+看一下我实际开发的仓库里的版本(npm dist-tag ls)：
+
+![image.png](/images/2022-12-1/2022-12-1-7.png)
+
+> 测试版还可以 npm version prepatch 来发布，原理一样：1.0.1 --> 1.0.1-0
+
+
+最后一个问题，一个测试版如果想要转正，可以执行如下指令：
+
+```shell
+npm version minor
+```
+> 若你之前是在 12 版本直接升上的 13.beta, 这里可以 patch 就行
+
+之前：
+
+![image.png](/images/2022-12-1/2022-12-1-8.png)
+
+之后：
+
+![image.png](/images/2022-12-1/2022-12-1-9.png)
+
+-----
+
+完 ！

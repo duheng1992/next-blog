@@ -1,0 +1,575 @@
+# 前端Nginx配置指北 + HTTPS安全原理
+---
+
+对于一个前端开发，虽然服务器开发部署不是主要业务，但是，独立开发前端项目总归是挂载在服务器上才能跑起来的，不能总指望运维来做这个工作。而且，作为一个程序员，不可能对项目部署一点都不了解。
+
+本文就讲一下作为一个前端开发应该要掌握的基本的 nginx 服务.
+
+> 关于 nginx 与 CI 配合的使用，见我的文章：https://juejin.cn/post/7183517146729693221
+
+## 1. 概念
+
+- 正向代理
+
+特点：用户主动去联系分发设备，分发设备来判断分发的目标服务器。此时，**用户对于服务器未知**。
+
+路由器是正向代理的一个例子，与用户在一侧，有最大带宽限制。
+
+![image.png](/images/2023-3-18/2023-3-18-1.png)
+
+- 反向代理
+
+反向代理一般是部署在服务侧的，灵活很多，可以做负载分流和扩展功能等。但是对于用户而言，反向代理服务器就相当于目标服务器，即用户直接访问反向代理服务器就可以获得目标服务器的资源。此时，**服务器对于用户未知**，提高了安全性。
+
+![image.png](/images/2023-3-18/2023-3-18-2.png)
+
+nginx 便是高性能的 HTTP 和反向代理 web 服务器
+
+一个nginx的使用例子就是虚拟主机：多个域名绑定一个主机，由 nginx 转发不同的资源。
+
+## 2. 安装与部署前端应用
+
+- 平台：CentOS7 虚拟机
+- 安装版本：目前最新 1.21.6
+- 下载地址：[nginx 官网](https://nginx.p2hp.com/en/download.html)
+
+
+安装包解压后进入目录
+
+![image.png](/images/2023-3-18/2023-3-18-3.png)
+
+安装依赖
+
+```
+yum install -y gcc
+yum install -y pcre-devel
+yum install -y zlib zlib-devel
+```
+
+开始安装 (安装目录/usr/local/nginx)
+
+```sh
+./configure --prefix=/usr/local/nginx
+
+make
+
+make install
+```
+
+安装成功，查看安装目录
+
+
+![image.png](/images/2023-3-18/2023-3-18-4.png)
+
+测试运行
+
+执行 `./sbin/nginx` (也可以使用全局 nginx 命令)
+
+![image.png](/images/2023-3-18/2023-3-18-5.png)
+
+可以看到进程已经启动
+
+```
+ps -ef | grep nginx
+```
+
+![image.png](/images/2023-3-18/2023-3-18-6.png)
+
+为了测试，先关闭防火墙：
+
+```
+systemctl stop firewalld.service
+```
+
+正式线上使用的，可以配置防火墙放行端口。
+
+配置 nginx 配置文件：
+
+```
+vim ./conf/nginx.conf
+```
+
+![image.png](/images/2023-3-18/2023-3-18-7.png)
+
+其中 location 根目录位置是已经 build 好的一个 vue 应用：
+
+![image.png](/images/2023-3-18/2023-3-18-8.png)
+
+重启
+
+```
+nginx -s reload
+```
+
+浏览器查看 （使用 ip addr 指令可以查看ip）
+
+![image.png](/images/2023-3-18/2023-3-18-9.png)
+
+---
+> 上述在之前的文章中也有所提及，相面更深入的讲一下配置文件的使用
+---
+
+## 3. 配置文件最小集
+
+配置文件最小集是一个能够支撑 nginx 正常跑起来的最小的配置项集合，连注释一并写在下面，供大家参考：
+
+```json
+// ./conf/nginx.conf
+worker_process 1; // 并行执行的任务数，一般按照CPU内核配置
+events: {
+    worker_connections 1024; // 配置单个worker进程最大的连接数，nginx 默认连接数是1024
+}
+
+http { // 支持 http 协议访问的服务
+    include      mime.types; // 当前目录下的配置的文件类型文件，使用默认即可。图片音频会自动解析给浏览器，不能解析的一律按照二进制流下载
+    default_type  application/octet-stream; // 默认文件类型 二进制流下载
+    sendfile        on;  // 是否允许目标服务器绕过 nginx 服务器直接返回结果给用户
+    keepalive_timeout  65;  // 超时时间
+    
+    server { // 隶属于 http 的一个 服务器
+        listen       10087;  // 端口
+        server_name  localhost;  // 服务部署的ip地址，可以是域名
+        charset utf-8;
+        location / {  // 配置 uri
+	    root   /root/web/dist;  // 自定义的资源目录，可以是绝对目录；若前边不加 /, 则表示相对目录，相对的是 nginx 主目录
+            index  index.html index.htm;
+        }
+
+        error_page  404             404.html;  // 404页面配置，相对路由
+        error_page   500 502 503 504   50x.html; // 同上
+        location = /50x.html {
+            root   html;  // 50x 时，资源指向 html目录下寻找
+        }
+        location = /404.html {
+            root   html;  // 同上
+        }
+    } // end server
+} // end http
+```
+
+## 4. 多站点配置
+
+假设我们有两个资源目录，你可以理解为两个项目的 build 目录：
+
+```
+/root/web/vue/dist
+/root/web/react/dist
+```
+
+我们通过配置文件来控制不同的访问 url 分别分发给这两个资源。
+
+```json
+server {
+    listen       80;  
+    server_name  www.vue.com;  
+    location / {  
+        root   /root/web/vue/dist; 
+        index  index.html index.htm;
+    }
+}
+
+server {
+    listen       8080;  
+    server_name  www.react.com;  
+    location / {  
+        root   /root/web/react/dist; 
+        index  index.html index.htm;
+    }
+}
+```
+
+这样，访问 www.vue.com 就会进入 vue 的项目，访问 www.react.com:8080 会进入 react 的项目。
+
+注意：https 的域名需要在云端配置 ip 绑定为 nginx 的服务器。
+
+## 5. server_name 匹配
+
+server_name 支持模糊匹配和通配符匹配。
+
+- 通配符： *.xxx.com 、www.baidu.*
+
+所有 .xxx.com 结尾的都可以匹配到
+
+- 完全匹配：www.react.com
+- 正则匹配：~^[0-9]+\.xxx\.com$ (规则：~开头)
+
+
+匹配优先级：
+
+1. 完全匹配
+2. 通配符在前的
+3. 通配符在后的
+4. 正则匹配
+
+如果都不匹配
+
+1. 优先选择listen配置项后有 default 或 default_server 的
+2. 上述都不满足，则去找端口配置的位置最靠前的server
+
+## 6. 负载均衡配置
+
+使用场景：访问同一个域名，但是目标地址可以是多个，根据使用情况和空闲程度自动分配一个使用。upstream 用于设置多台分发主机的集合。
+
+```json
+http {
+    ...
+    upstream my_server {
+        server 10.123.345.456:8000;
+        server 10.123.345.457:8000;
+    }
+
+    server {
+        location / {
+            proxy_pass http://my_server;
+        }
+    }
+}
+
+```
+
+这样配置后，实际访问 http://192.168.122.1 访问时，系统会在 456 和 457 两个 ip服务选择一个分发，雨露均沾。
+
+当然你也可以配置两个服务器的轮询权重(访问概率)。
+
+```json
+server 10.123.345.456:8000 weight=8;
+server 10.123.345.457:8000 weight=1;
+server 10.123.345.457:8000 backup;  // 标识备用机，实在是没有可用的机器时启用
+```
+
+如果想要某一个服务器不参与负载均衡，可以如下配置：
+
+```json
+server 10.123.345.456:8000 down;
+```
+
+## 7. 配置动静分离
+
+适合小中型网站，静态资源不太多的场景。原理是用户请求页面时，提取出静态资源，等下次用户访问相同页面时，静态资源可以不用再次找服务器获取，而是取缓存的内容。
+
+配置如下：
+
+
+```json
+http {
+    ...
+    upstream my_server {
+        server 10.123.345.456:8000;
+        server 10.123.345.457:8000;
+    }
+
+    server {
+        location / {
+            proxy_pass http://my_server;
+        }
+        
+        location ~.*\.(js|png|jpg|svg|css)$ {  // 静态资源
+            root   html;
+            index  index.html index.htm;
+        }
+    }
+}
+```
+
+## 8. 配置 URLRewrite
+
+用于隐藏服务器真实url路径。
+
+```js
+http {
+    ...
+    upstream my_server {
+        server 10.123.345.456:8000;
+        server 10.123.345.457:8000;
+    }
+
+    server {
+        location / {
+            rewrite ^/([0-9]+).html$ /index/pageNum=$1 break;
+            proxy_pass http://my_server;
+        }
+        
+    }
+}
+```
+
+上边就使用了一个 rewrite 来配置了转发。
+
+这个例子隐藏了页面的分页信息：访问 /2.html 就相当于访问了 /index/pageNum=2 路径。
+
+匹配关键字：
+
+- break：停止所有rewrite匹配
+- last：本条匹配完成后，继续向后匹配其他的 location 的 rewrite
+- redirect：返回 302 重定向到真实地址，而不是用假地址
+- permanent：301 永久重定向到真实地址 （适用于爬虫）
+
+## 9. 配置防盗链
+
+盗链（Hotlinking）是指在一个网站上，使用别人网站上的图片或其他媒体资源来装饰自己的网站，而不获得该资源的所有者许可的行为。盗链可以导致被盗用者的带宽和流量受到消耗，甚至可能使其网站速度变慢或崩溃。
+
+防盗链也是资源节省优化的必备配置。nginx 中根据 http 请求头的 referer 判断来源可以做到拦截。
+
+一个配置防盗链的例子如下：
+
+```json
+location ~* \.(jpg|jpeg|png|gif)$ {
+    valid_referers none blocked xxx.com;
+    if ($invalid_referer) {
+        return 403;
+    }
+}
+```
+
+以上代码表示，如果访问的图片URL的`referer`不是 xxx.com，则返回 403 禁止访问。如果访问的URL没有referer，则也会被禁止访问。
+
+配置项介绍：
+
+- none：referer不存在时可以访问，不设置则所有访问不是 xxx.com 都禁止
+- blocked：referer值被防火墙或者代理服务器删除或伪装时可以访问。一般是不带 http 前缀的访问放行配置。
+
+接下来配置错误提示页面：
+
+假设有个页面 ： `403.html`, 需要配置禁止访问时显示：
+
+```json
+error_page 403 /403.html
+location = /403.html {
+    root   html;  // 资源指向 html目录下寻找
+}
+```
+
+或者在 return 403 时设置：`rewrite` 到一个配置好的资源也可以。
+
+## 10. 安全高可用方案配置
+
+安全高可用的意义：在不额外添加机器的情况下做到不down机动态切换机器，从而达到服务持续可用 
+
+### keepalived
+
+安装
+
+```sh
+yum install keepalived
+```
+
+编辑配置（/etc/keepalived.conf）:
+
+```json
+global_defs {
+    router_id lb111
+}
+
+vrrp_instance_test {  // 自定义 test 实例
+    state MASTER   // 主
+    interface eth01  // 你机器上网卡的名字
+    virtual_router_id 33  // 虚拟路由id，主从要一样
+    priority 100 // 优先级高的机器就为 master
+    advert_int 1 // 间隔检测时间
+    authentication {  // 认证配置，同一组保持一致即可
+        auth_type PASS  
+        auth_pass 1111  
+    }
+    virtual_ipaddress {
+        192.168.44.1  // 本台机器的虚拟地址
+    }
+}
+```
+
+上面是第一台机器的配置，在第二台虚拟机上也配置一下类似的配置，设置：
+
+```json
+global_defs {
+    router_id lb110  // 修改路由号
+}
+
+vrrp_instance_test {  // 同一个实例
+    state BACKUP   // 从
+    interface eth01  
+    virtual_router_id 33
+    priority 50 // 减低优先级
+    advert_int 1
+    authentication { 
+        auth_type PASS  
+        auth_pass 1111  
+    }
+    virtual_ipaddress {
+        192.168.44.1  // 本台机器的虚拟地址
+    }
+}
+```
+
+两台机器分别启动一下：
+
+```
+systemctl start keepalived
+```
+
+此时在外网可以ping通的ip是： 192.168.44.1。
+
+我们让 MASTER 机器关机后，再ping一下 192.168.44.1，发现仍然可以，此时在备份及使用指令 `ip addr` 查看，可以看到 有一个 192.168.44.1 的虚拟ip。这说明高可用生效了，这种配置叫 ip漂移。
+
+上述情况只能保证 keepalived 进程挂掉时起作用，更高级的用法是跑一个脚本，检测本机的 nginz 服务进程，如果服务异常，则 kill 掉本机的 keepalived 进程。
+
+
+### https 与 TLS
+
+http 协议往往是不安全的，即使有防火墙，但是没办法防御消息在传输过程中被劫持：
+
+![image.png](/images/2023-3-18/2023-3-18-10.png)
+
+此时就需要对传输过程的消息进行加密。加密方式有对称加密和非对称加密。
+
+对称加密的加密和解密互为逆过程，规则是固定的，存放在服务器端或者客户端，这个加密算法传输过程中也容易被获取，所以并不是太安全。
+
+- 非对称加密
+
+非对称加密会设置一个公钥，用于传递；服务端和客户端分别设置一个私钥，自己保存，加密步骤如下：
+
+1. 用户通过服务器443端口下载公钥，并传递自己的公钥给服务器。
+2. 再次请求服务器，用**服务公钥+对称加密算法**来加密明文，生成密文
+3. 传递密文给服务器
+4. 服务端用**服务私钥+加密算法**解开密文，得到明文
+5. 类似的，服务端根据明文请求和用户传递的用户公钥进行响应：**用户公钥+算法的密文**
+6. 用户用**用户私钥+算法解密**获取数据
+
+其中需注意，公钥加密的数据公钥自己是解不开的，而且要保证都是公钥加密，私钥解密。
+
+但是，如果服务器被伪造了，公钥是坏人给的，那你的数据加密再好也没用了，这就是中间人攻击。
+
+- TLS
+
+为了解决中间人攻击，需要对使用者进行身份认证，这就引入了数字证书。常见的方式是找一个第三方公认的好人（CA）来颁发这个证书来认证公钥。
+
+服务器会申请公钥给CA来获取证书，CA判断你是否有所认证机构的管理权限和拥有权限，通过后颁发数字证书（CA自己的私钥+加密算法）；服务器拿到证书后，给用户传递的就是这个证书了，用户用CA公钥解密出服务器公钥来使用。
+
+此时，中间人获取不到CA的私钥，所以用户端浏览器就不认这个中间人，以此达到鉴伪。用户只要使用的是正版操作系统和正规浏览器，就能保证数字证书的获取。这期间使用了 TLS 算法生成了两组随机数，通过非对称加密，客户端和服务端达成一致，生成了一个只有他们自己知道的对称加密规则，我这里借用[b站](https://www.bilibili.com/video/BV1KY411x7Jp) 技术蛋老师的解释图：
+
+
+![image.png](/images/2023-3-18/2023-3-18-11.png)
+
+上图的步骤如下：
+
+1. 服务器生成一套私钥和公钥
+2. 可以先生成一个随机数1，并传给服务端，请求公钥
+3. 服务端生成随机数2，带上公钥、证书一起给客户端
+4. 现在客户端、服务端、黑客都知道了公钥、随机数1和随机数2
+5. 客户端生成随机数3，结合公钥加密后给服务端，服务端通过私钥解密后得到明文
+6. 客户端和服务端各自通过 随机数1/2/3生成一个会话秘钥，这个会话秘钥就是对称加密的秘钥，且不在网络上传递。
+7. 接下来就是对称加通信环节，而黑客目前只知道公钥、随机数1和随机数2，无法破解通信。
+
+
+这里讲一下 nginx 如何配置 https。你需要有一个服务的公网ip（假设 123.456.789.111）和购买的域名（假设 www.abc.com ）并申请好了域名解析和数字证书（.key 和 .pem 文件）:
+
+```json
+server {
+    listen 443 ssl;
+    server_name localhost;  // 域名已经和ip绑定，写 localhost也是能解析的
+    ssl_certificate xxxx.pem;
+    ssl_certificate_key xxxx.key;
+    underscores_in_headers on; // 允许请求头出现下划线
+    root html;
+}
+```
+
+
+## 11. 变量的使用
+
+跟其他技术的配置文件一样，nginx 也能使用变量：
+
+```json
+location / { 
+    set $name "zhangsan"; 
+    return 200 "$name"; 
+}
+```
+
+上面就设置了一个变量叫 name，并且直接返回 200 的请求，在页面上显示 name 的值。其格式是：
+
+```sh
+set $变量名 变量值
+```
+
+当然了，nginx 也自带了一些变量，可以直接使用，比如：
+
+- `$request`  完整的原始的请求行，例如：GET /nginx/index?a=1&b=2 HTTP/1.1
+- `$request_uri`  完整的原始请求URI，访问的URL除去域名(或IP)和 port, 如: /nginx/index?a=1&b=2
+- `$args` 请求行中的全部参数 例如：a=1&b=2
+- `$remote_addr` 客户端ip地址
+- `$remote_port` 客户端端口
+
+...
+
+nginx 配置文件的变量可以统一设置在文件的顶部，这样在整个文件中都可以使用同一个变量：
+
+```sh
+set $my_var "hello";
+```
+
+引申：变量值的计算
+
+```json
+location / { 
+    set $my_var 10; 
+    add_header X-Test $my_var; // 成功响应时，添加响应头
+    add_header X-Total $my_var*2; 
+}
+```
+上面的例子就是变量简单的数值计算。
+
+
+## 12. 业务场景案例
+
+### 案例一
+
+- **项目介绍**：前端微服务项目
+- **需求**：各个子服务的部署，需要根据灰度系统传递过来的静态资源目录地址来动态切换转发地址
+- **业务介绍**：这是我参与的一个前端业务场景，访问微服务子应用时，微服务启动器会调用灰度系统接口获取当前登录用户的产品权限列表，并返回给前端打包好的前端页面静态资源地址。这个地址会根据用户权限和灰度策略变化。
+
+现在有上面一个工作，需要配置nginx来完成动态转发的工作，让用户看到不同版本的前端项目。
+
+#### 解析
+
+可以使用一个变量来标识资源地址，在前端服务build的CI中修改这个配置文件，更改变量值。
+
+一个示例：
+
+```json
+set $uri "/root/web/vue/dist";
+
+server {
+    listen       80;  
+    server_name  www.test.com;  
+    location / {  
+        root   $uri; 
+        index  index.html index.htm;
+    }
+}
+```
+
+在 CI 中修改配置文件：set $uri "/root/web/react/dist"，重启 nginx 后即可。
+
+> 大家有更好的办法的话，可以在评论区讨论哦
+
+### 案例二
+
+- **使用场景**：在前端项目部署新版本后，用户没办法感知刷新，在不强制刷新的前提下，看到的仍然是旧版本。
+- **需求**：需要设置服务器配置，在前后端版本不一致时强制刷新
+
+#### 解析
+
+这个问题有多种解决方式。
+
+可以配置 nginx，高速浏览器不要缓存：
+
+```json
+location / {
+    add_header Cache-Control "no-cache, must-revalidate"
+}
+```
+
+或者配置强制浏览器缓存，常用的办法是添加hash或者版本号来让浏览器重新下载资源：
+
+```js
+<link rel="stylesheet" href="/css/main.css?version=v2"
+```

@@ -91,7 +91,7 @@ export const Header = forwardRef(function Header({ className }, ref) {
             <DropdownMenu title="作品" items={[
               { href: 'https://duheng1992.github.io/monto-color/', title: '配色方案' },
               { href: 'https://dh1992.gitee.io/dux-ui-react/', title: 'DUX UI' },
-              { href: '#', title: '微服务框架' },
+              { href: 'https://chromewebstore.google.com/detail/chrome-bookmark/ilcmekmgeldhckdembghkiohkdffihpe?hl=zh-CN&utm_source=ext_sidebar', title: '谷歌书签-威力加强版 v0.1.0' },
             ]} />
             {/* <TopLevelNavItem href="/">公告</TopLevelNavItem> */}
           </ul>

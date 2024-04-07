@@ -1,0 +1,72 @@
+# 前端项目部署不同域名间共享cookie的方案
+-------
+
+在部署前端服务的过程中，需要实现登录信息共享的功能，若各个服务是在同一个域名下的，则可以共享cookie。但是，公司对外产品往往都是单独部署域名的，比如产品页面、门户网站等，他们若需要拿到当前登录信息，就需要特殊配置了。
+
+产品部署配置：
+
+- 登录页面： https://passport.xxx.com
+- 微服务产品系统：https://console.xxx.com
+- 门户网站：https://www.xxx.com
+- 产品文档：https://docs.xxx.com
+
+可以看到线上部署后，公司产品的二级域名虽然是不一样，但是一级域名一样，把cookie的Domain设置为 `.xxx.com` 就可以共享了。但是如果是本地开发就头疼了。本地开发，会先跳转到部署好的登录页：`passport.xxx.admin.com`，然后再跳转回 `localhost` ，此时，来源的一级域名不一样，就会出现cookie没办法共享的问题了。
+
+这里提供三种跨域cookie方案供选择。
+
+## 1. 后端配置
+
+我们知道 cookie 有几个属性：
+
+![image.png](/images/2022-12-25/2022-12-25-1.png)
+
+HttpOnly 和 Secure 用于限制只能 https 传递不可读的安全 cookie；另外一个属性 SameSite 可以设置三个值：`Strict`、`Lax`、`None`：
+
+- `Strict`：完全禁止第三方获取cookie，跨站点时，任何情况下都不会发送cookie
+- `Lax`：防范跨站，大多数情况下禁止获取cookie，除非导航到目标网址的GET请求（链接、预加载、GET表单）
+- `None`：没有限制。必须同时设置`Secure`属性（Cookie 只能通过 HTTPS 协议发送），否则无效，需要 chrome > 80，兼容性有问题：
+
+![image.png](/images/2022-12-25/2022-12-25-2.png)
+
+此时，只要设置 只支持https 且 samesite=None，便会在 https 下携带 cookie 了。但是这只适用于 https，开发环境大多是 http，不能用。
+
+## 2. 前端配置
+
+前端也是可以设置 cookie 的，而且可以指定域名。在登录页面登录后设置 cookie：
+
+```js
+let host = window.location.host;
+
+if (host.indexOf('passport.xxx.admin.com') > -1) {
+    host = '.xxx.admin.com';
+}
+
+window.document.cookie = `${name}=${value};domain=${host}`;
+```
+
+
+## 3. 跳转时设置回调参数
+
+针对前端配置的补充方案，此方法也适合 iframe 传参方式。
+
+在 `localhost` 进入开发页面，此时检测到没有 cookie 信息，会自动跳转到登录页面： `passport.xxx.admin.com`, 跳转时回带参数：
+
+```shell
+http://passport.xxx.admin.com?origin=localhost
+```
+
+登录页面登录后，直接读取路由参数中的 origin，并设置带着 host 的 cookie：
+
+```js
+window.document.cookie = `${name}=${value};domain=${origin}`;
+```
+设置完毕后重定向页面跳转回 origin 即可实现 cookie 携带。
+
+
+## 4. 对比
+
+- 后端配置倾向于前后端传递 cookie 时使用，若只是前端共享 cookie，不需要告知后端时则不可用
+- 前端配置可以实现后端无感的cookie传递，但是安全性不高，不可传递明文，尽量只用在开发环境。
+
+--------
+完 ！

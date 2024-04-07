@@ -1,0 +1,351 @@
+# Gitlab CI/CD + Nginx 实现自动化集成构建与部署
+---
+
+上一节讲了如何在 CentOS 上安装 gitlab，本节讲一下如何实现 gitlab CI/CD。
+
+## 1. 安装配置 gitlab-runner
+
+执行指令
+
+```shell
+mwget https://mirrors.tuna.tsinghua.edu.cn/gitlab-runner/yum/el7/gitlab-runner-11.5.1-1.x86_64.rpm
+```
+
+安装
+
+```shell
+rpm -i gitlab-runner-11.5.1-1.x86_64.rpm
+```
+
+查看版本
+
+```shell
+gitlab-runner -v
+```
+
+![image.png](/images/2023-1-1/2023-1-1-1.png)
+
+注册：
+`gitlab-runner register`，
+会提示输入URL，
+
+![image.png](/images/2023-1-1/2023-1-1-2.png)
+
+这个在仓库的配置的 Runners 里可以查到
+
+![image.png](/images/2023-1-1/2023-1-1-3.png)
+
+接下来提示输入 gitlab-ci token，配置里紧挨着刚才的URL的就是Token，粘贴过去回车就可以啦。
+
+一路按照提示输入就行，输入tag为  test-deploy，最后会提示选择哪种执行器 executor：
+
+![image.png](/images/2023-1-1/2023-1-1-4.png)
+
+看你熟悉哪个啦，这里以 shell为例。
+
+配置好后，需要将gitlab 校验一下
+
+![image.png](/images/2023-1-1/2023-1-1-5.png)
+
+在web页面查看一下 runners配置，刚刚的注册runner已经存在啦：
+
+
+![image.png](/images/2023-1-1/2023-1-1-6.png)
+
+点击编辑按钮进入runner编辑：
+
+![image.png](/images/2023-1-1/2023-1-1-7.png)
+勾上图中所示选项让没有打标签的项目也能使用。我这里 打了 test-deploy 的标签。同一个标签的 CI 用的是一个 Runner。
+
+## 2. 项目build与Nginx部署
+
+先不使用gitlab流水线，自己实现一下该项目的build与nginx部署。
+
+本文准备的项目就是一个vite创建的 vue3 空项目：
+
+![image.png](/images/2023-1-1/2023-1-1-8.png)
+
+查看他的 package.json：
+
+```json
+"scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+}
+```
+
+执行：
+
+```shell
+yarn build
+```
+可以看到打包文件已经生成了：
+
+![image.png](/images/2023-1-1/2023-1-1-9.png)
+
+接下来就是在 服务器（还以这个CentOS虚拟机为例）上安装一下 Nginx，把打包的文件丢进去就可以了。
+
+### Nginx 安装
+
+- 前置依赖安装
+
+```shell
+yum -y install gcc gcc-c++ autoconf pcre-devel zlib-devel openssl openssl-devel make automake
+yum -y install httpd vim
+```
+
+- 安装 Nginx
+
+```shell
+## 用户目录下，下载免安装版 (也可以用 yum)
+cd ~
+mwget http://nginx.org/download/nginx-1.18.0.tar.gz
+
+## 解压缩
+tar zxvf nginx-1.18.0.tar.gz
+
+## 进入安装目录 （你在哪里解压缩的，文件就在哪）
+## 配置安装运行目录
+./configure --prefix=/usr/local/nginx
+
+## 编译安装
+make && make install
+
+## 配置环境变量 （我这里只配置用户级别）
+## 在用户主目录下
+vim .bash_profile
+
+## 追加
+PATH=$PATH:$HOME/bin:/usr/local/nginx/sbin
+
+## 保存退出后生效配置
+source ./.bash_profile
+```
+
+此时在任意目录下执行：
+
+```shell
+nginx -v
+```
+便可以看到打印的版本号了。
+
+![image.png](/images/2023-1-1/2023-1-1-10.png)
+
+### 启动Nginx
+
+```shell
+安装完毕，进入Nginx下的sbin目录并启动nginx
+cd /usr/local/nginx/sbin
+./nginx
+```
+
+
+### 配置 Nginx
+
+> 这里讲 Nginx 只是为了辅助 CI/CD 讲解，配置详细不做过多展开
+
+若是 yum 安装的，配置文件在 `/etc/nginx/nginx.conf` 中，我这个是免安装版的，配置文件在 `/usr/local/nginx` 中：
+
+```shell
+vi /usr/local/nginx/conf/nginx.conf
+```
+按照自己的喜好配置，找对文件目录即可（建议单开一个全局目录）：
+
+
+![image.png](/images/2023-1-1/2023-1-1-11.png)
+
+我们把 项目 dist 目录放入对应配置的位置（建议不要在自定义的用户下，不然 CI 使用的账户 会拿不到）：
+
+
+![image.png](/images/2023-1-1/2023-1-1-12.png)
+
+按照上一节的讲解，配置了防火墙和虚拟机NAT配置，开通 10087 端口后，在 windows中访问虚拟机这个端口 http://192.168.137.128:10087
+
+
+![image.png](/images/2023-1-1/2023-1-1-13.png)
+成功！
+
+## 3. 配置CI
+
+在项目根目录下创建 .gitlab-ci.yml 文件来编写执行流程。
+
+在编写之前，我们先清楚一个事情，CI/CD 所要完成的工作就是上边我们手动 build 完以后，再把 dist 目录移动到 nginx 配置的目录下并且重启 Nginx，只是变成了流水线自动化部署而已，省去了繁杂的部署工作。
+
+确定流水线分两步：打包 和 部署：
+
+```yaml
+stages:
+  - build
+  - deploy
+```
+
+流水线是串行执行的，故runner只用一个就可以，yml 中 tags 设置为同一个就行。
+
+我们写一些 build 的脚本测试：
+
+```yaml
+build:
+  stage: build
+  tags:
+    - test-deploy
+  only:
+    - master
+  script:
+    - pwd && ls -al
+    - npm install --registry https://registry.npm.taobao.org && npm run build
+    - cd $CI_PROJECT_DIR && ls
+    - cp -r ./dist /home/gitlab-runner/web/backup/ 
+  cache:
+    paths:
+      - node_modules/
+```
+
+> 最后的 cp 是为了在 deploy 能拿到 build 的文件。cp 的时候别忘了给文件夹权限
+
+推送到 master 后发现 CI 挂了：
+
+
+![image.png](/images/2023-1-1/2023-1-1-14.png)
+
+原来是 runner 环境里没有node环境，通过如下脚本来看看runner的执行位置：
+
+```yaml
+before_script:
+    - whoami
+    - pwd
+    - locate npm
+    - echo ${PATH}
+    - node -v
+ ```
+ 
+打印结果：
+
+![image.png](/images/2023-1-1/2023-1-1-15.png)
+
+可以看到，PATH 里是有我们在服务器上配置的 node 的全局变量的，但是这里读不到。应该是服务器登录账户不同造成的。
+
+
+![image.png](/images/2023-1-1/2023-1-1-16.png)
+
+源 node 我是配置在 root 下的全局变量，而 CI 是跑在自动创建的 gitlab-runner 账户下的，此时只要在runner账户下再安装一次，配置好环境变量就搞定啦。再测试一下：
+
+
+![image.png](/images/2023-1-1/2023-1-1-17.png)
+
+可以看到 node 已经拿到，直接上 build：
+
+
+![image.png](/images/2023-1-1/2023-1-1-18.png)
+
+可以看到 npm build 成功啦，那么打完包的 dist 要如何部署到服务器上呢？
+
+## 4. 配置CD
+
+首先进入查看一下 上一步 cp 的公共目录：
+
+
+![image.png](/images/2023-1-1/2023-1-1-19.png)
+
+可以看到已经有啦。这样我们就可以在 deploy 阶段处理这些文件了。
+
+复习一下上一节，Nginx 部署目录是：/root/web/dist，我们试着 cp 一下：
+
+```yaml
+deploy:
+  stage: deploy
+  tags:
+    - test-deploy
+  only:
+    - master
+  script:
+    - echo "deploy"
+    - pwd && ls -al
+    - cp -r /home/gitlab-runner/web/backup/dist /root/web/dist
+```
+
+发现读取不了 root 下的目录：
+
+
+![image.png](/images/2023-1-1/2023-1-1-20.png)
+
+所以改进一下 Nginx 部署目录：
+
+
+![image.png](/images/2023-1-1/2023-1-1-21.png)
+
+修改 deploy：
+```yaml
+- cp -r /home/gitlab-runner/web/backup/dist /home/gitlab-runner/web/
+```
+
+此时 10087 端口已经跑不起来了。我们提交一下 CI 再跑一次：
+
+
+![image.png](/images/2023-1-1/2023-1-1-22.png)
+
+成功复制过去了。
+
+此时在 windows下再看看：
+
+
+![image.png](/images/2023-1-1/2023-1-1-23.png)
+
+成功！
+
+我们改动一下代码提交测试一下：
+
+
+![image.png](/images/2023-1-1/2023-1-1-24.png)
+
+push 到 master 上，等 CI/CD 跑完后刷新网页：
+
+
+![image.png](/images/2023-1-1/2023-1-1-25.png)
+
+自动化部署完成！！
+
+## 5. 小结
+
+1. 安装 runner
+2. 配置 nginx
+3. 书写 .gitlab-ci.yml
+
+```yaml
+stages:
+  - build
+  - deploy
+
+build:
+  stage: build
+  tags:
+    - test-deploy
+  only:
+    - master
+  before_script:
+    - whoami
+    - pwd
+    - echo ${PATH}
+    - node -v
+  script:
+    - pwd && ls -al
+    - npm install --registry https://registry.npm.taobao.org && npm run build
+    - cd $CI_PROJECT_DIR && ls
+    - cp -r ./dist /home/gitlab-runner/web/backup/
+  cache:
+    paths:
+      - node_modules/
+
+deploy:
+  stage: deploy
+  tags:
+    - test-deploy
+  only:
+    - master
+  script:
+    - echo "deploy"
+    - pwd && ls -al
+    - cp -r /home/gitlab-runner/web/backup/dist /home/gitlab-runner/web/
+```
+
+4. 部署目录检查与测试代码
