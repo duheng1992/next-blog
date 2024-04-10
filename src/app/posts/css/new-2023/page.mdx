@@ -1,0 +1,787 @@
+# 年终盘点：2023年 CSS 领域新的一些变化
+---
+
+2023 年， CSS 领域有了新的变化，整体趋势是更加的易用，并贴合流行的框架做了扩展。Chrome 的开发者 blog 和 MDN 里更新了一些比较有意思的 CSS 2023 动向的内容，文章比较长，内容有点乱，这里总结分享一下给大家。
+
+## 1. 摘要
+
+本文是 “2023 年度技术盘点” 系列文章，主要介绍前端 CSS 领域在 2023 年的重要进展。本文从 CSS 基础功能、排版、颜色、自适应设计、交互和组件等方面进行盘点。
+
+> 可以查看文章目录以选择查看自己感兴趣的更新
+
+## 2. 基础功能
+
+css 新增了三角函数相关函数：`sin()`、`cos()`、`tan()`、`asin()`、`acos()`、`atan()` 和 `atan2()`。
+
+三角函数的使用要和 `calc` 结合才能出效果。
+
+#### 三角函数
+
+![image.png](/images/2024-1-2/2024-1-2-1.png)
+
+-   `cos()`：返回角度的余弦值，该值介于 `-1` 和 `1` 之间。
+-   `sin()`：返回角度的正弦值，该值介于 `-1` 和 `1` 之间。
+-   `tan()`：返回角度的正切值，取值介于 `−∞` 和 `+∞` 之间。
+
+以正弦为例，你可以这么写：`width: calc(sin(var(--angle)) * 200px);` 来计算宽度值。
+
+我们实现一个计算角度垂线长度的问题来说明 sin 的用法。下面的例子里，绿色虚线的长度就是 `斜边（200px）* sin(角度)` 计算出来的：
+
+[实现 sin 计算三角形边长](https://code.juejin.cn/pen/7317184041529114662)
+
+> 由于 chrome 的 css 不支持 rem() 和 mod() 等取模函数，所以用了两个 css 变量表示 180deg 前后的角度
+
+> 码上掘金怎么不支持直接预览了，我放个截图吧...
+
+
+![image.png](/images/2024-1-2/2024-1-2-2.png)
+
+
+同理，cos 和 tan 可以如下使用：
+
+```css
+transform: scaleX(cos(var(--angle)))
+transform: scaleX(tan(var(--angle)));
+```
+
+官方demo：https://codepen.io/web-dot-dev/pen/NWLxROo
+
+#### 反三角函数
+
+反三角函数是三角函数的逆运算，包含：`asin()`、`acos()`、`atan()` 和 `atan2()`。前三个接受一个数值，返回对应的角度值。
+
+第四个 `atan2()`，接受两个参数 `A` 和 `B`。返回 X 轴正轴与 `(B, A)` 点之间的角度。
+
+> atan2对象限敏感，根据两个参数判断它是属于哪个象限并给出对应的角度值，值域范围[-pi, pi]；atan对象限不敏感，值域范围为[-pi/2, pi/2]
+
+下面还是举个例子来说明 `atan()` 和 `atan2()` 的区别。
+
+[反三角函数示例](https://code.juejin.cn/pen/7317462707643351092)
+
+下一个新功能是 `n-*` 的选择器。大家之前也都用过诸如 :nth-of-type 这样的伪类来实现元素选择，现在官方增强了这个功能，使用 S 语法来更好地控制 :nth-child() 选择： `:nth-child()` 和 `:nth-last-child()`。
+
+#### n-* 选择器 与 S 语法
+
+
+![image.png](/images/2024-1-2/2024-1-2-3.png)
+
+使用例子：
+
+-   `:nth-child(2)`：选择第二个子级。
+-   `:nth-child(2n)`：选择所有偶数子项（例如 2nd、4th、6th、8th 等）。**
+-   `:nth-child(2n+1)`：选择所有奇数子项（第 1、3、5、7，依此类推）。**
+-   `:nth-child(5n+1)`：选择第 1 个  *(=(5×0)+1)* 、第 6 个  *(=(5×1)+1)* 、第 11 个  *(=(5×2)+1)* ...子级。
+-   `:nth-child(5n+2)`：选择第 2 个  *(=(5×0)+2)* 、第 7 个  *(=(5×1)+2)* 、第 12 个  *(=(5×2)+2)* ... 子项。
+
+里边的选择项可以是等差数列，等比数列，或者是自定义的任意数列，甚至可以组合使用：
+
+-   `:nth-child(n+3)`：选择从第 3 个开始的每个子级。
+-   `:nth-child(-n+5)`：选择不超过第 5 个子级（第 1 个、第 2 个、第 3 个、第 4 个、第 5 个。
+-   `:nth-child(n+3):nth-child(-n+5)`：选择第 3 个到第 5 个（第 3 个、第 4 个、第 5 个）的每个子级。
+
+同理，`:nth-last-child()` ，也可以进行类似的选择，但不是从头开始计数，而是从头开始计数。
+
+下面给一个创建斑马纹示例：
+
+```css
+tr:nth-child(even) {
+  background-color: #E9E9E9;
+}
+
+// 另一种写法
+tr:nth-of-type(even){ 
+  background: #E9E9E9;
+}
+```
+
+> “nth-of-type”和“nth-child”的区别：p:nth-of-type(7)选择的p元素所在的父元素下的第7个P元素即：第7个p；p:nth-child(6)选择的p元素所在的父元素下的第6个子元素，且该元素是P元素。
+
+nth-child 还可以结合 S 语法使用：
+
+```css
+:nth-child(An+B [of S]?)
+:nth-last-child(An+B [of S]?)
+```
+指定 `of S` 后，`An+B` 逻辑仅应用于与给定选择器列表 `S` 匹配的元素。这实际上意味着，您可以在 `An+B` 执行操作之前预先过滤子项：
+
+```css
+:nth-child(2 of .highlight) {
+  /* = Select the 2nd child element that has the class .highlight applied to it */
+  outline: 0.3rem dashed hotpink;
+  outline-offset: 0.7rem;
+}
+```
+上面的例子，选择了父元素盒子中，类名叫 highlight 中的第二个子元素（注意不是物理顺序的第二个）来赋值样式。
+
+再举个例子，上面的斑马纹还可以增强：
+
+```css
+// 筛选没有 hidden 属性的列，然后再计算斑马纹
+tr:nth-child(even of :not([hidden])) {
+  background-color: lightgrey;
+}
+```
+
+#### `@scope`
+
+![image.png](/images/2024-1-2/2024-1-2-4.png)
+
+Chrome 118+ 增加了对 `@scope` 的支持，这是一项 @ 规则，可将选择器的范围限定为文档的特定子树，从而控制 css 作用域，这对于将来需要做 css 隔离的业务场景有大用处：
+
+```css
+@scope (html) {
+  .warning {
+    display: none;
+  }
+}
+
+/* Only match elements in the card component, but don’t target those in nested components */
+@scope (.card) to ([data-component]) {
+  img {
+    border: 0.25em solid #6300ff;
+    border-radius: 0.5em;
+  }
+}
+```
+
+上面的第二个例子，只作用于 card 类，而不作用于其包含data-component属性的子元素，即 card类 和 \[data-component] 之间的元素。
+
+
+官网demo：https://codepen.io/web-dot-dev/pen/YzdOydZ
+
+#### `@layer 嵌套`
+
+
+![image.png](/images/2024-1-2/2024-1-2-5.png)
+
+> 其实这个特性22年就有了
+
+官方 css 显然是吸取了各个前端框架和预处理器的经验，并进行了升级，现在 css 也要支持嵌套了。
+
+
+之前这样的写法：
+
+```css
+ul li {}
+ul li .child {
+  color: red;
+}
+```
+
+现在可以这样写了：
+
+```css
+@layer test {
+    ul {
+      li {
+        & .child {
+          color: red;
+        }
+      }
+    }
+    
+    .card {
+      &--header {
+        /* is not equal to ".card--header" */
+      }
+    }
+}
+```
+
+> 当然直接嵌套，不使用 @layer 也是可以的
+
+使用具名 `@layer` 包裹的 css 片段可以支持嵌套优先级配置。
+
+```css
+@layer base, special;
+
+@layer special {
+  .item {
+    color: red;
+  }
+}
+
+@layer base {
+  .item {
+    color: green;
+    border: 5px solid green;
+    font-size: 1.5em;
+    padding: 0.5em;
+  }
+}
+```
+预先定义各个具名layer的优先级，从左到右依次降低，上面的 item 类元素，最后会被加上红色的颜色，而不是绿色。
+
+#### 子网格布局
+
+![image.png](/images/2024-1-2/2024-1-2-6.png)
+
+我们都知道有 grid 布局，现在迎来了增强，加入了 subgrid 布局。
+
+我们这么定义一个网格布局：
+
+```css
+.container {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: [column-1] 20ch [column-2] 1fr;
+}
+```
+网格有两列，一列给20ch，一列占领剩余空间：
+
+
+![image.png](/images/2024-1-2/2024-1-2-7.png)
+
+我们现在定义子网格：
+
+```css
+.container > div {
+  grid-column: span 2;
+
+  display: grid;
+  grid-template-columns: subgrid; /* 20ch 1fr */
+}
+```
+
+![image.png](/images/2024-1-2/2024-1-2-8.png)
+
+这样一来，子 div 虽然还是占了一行，但是他继承了父元素的网格布局，即父网格的列已经有效向下传递到子网格，在各个子 div 内部再实现布局时就可以直接使用。最新的浏览器中也标明了这种布局：
+
+
+![image.png](/images/2024-1-2/2024-1-2-9.png)
+
+demo 如下：[子网格布局 demo](https://code.juejin.cn/pen/7317532251985313830)
+
+看看你的浏览器支不支持，可以这样：
+
+```css
+@supports (grid-template-columns: subgrid) {
+  /* safe to enhance to */
+}
+```
+
+官方demo：https://codepen.io/web-dot-dev/pen/MWLENzm
+
+## 3. 排版
+
+2023 年，css 也开始针对排版更新了，可能是借鉴了 Tailwind 的经验...
+
+#### 首字母
+
+![image.png](/images/2024-1-2/2024-1-2-10.png)
+
+Chrome 110 中推出了 `initial-letter` 属性，可以将首字母抬起或降低。
+
+示例：`<p>Lorem ipsum dolor ...</p>`
+
+```css
+p {
+  &::first-letter {
+    initial-letter: 3 2;
+    color: green;
+  }
+}
+```
+
+核心点是 `first-letter` 伪元素，他在 DOM 结构树中不会体现出来（所以有些迷，调试有困难，幽灵元素？），其中可选项 initial-letter 可以设置其偏移量，上面的例子表示首字母高度占用 3 行，下沉 2 行：
+
+
+![image.png](/images/2024-1-2/2024-1-2-11.png)
+
+> 首字母属性同样支持中文
+
+#### 文字折行优化
+
+![image.png](/images/2024-1-2/2024-1-2-12.png)
+
+新增两种写法 `text-wrap: balance` 和 `text-wrap: pretty`，官方解释请移步：https://www.w3.org/TR/css-text-4/#text-wrap。
+
+前者是浏览器为文本找出最佳的均衡换行解决方案：
+
+
+![image.png](/images/2024-1-2/2024-1-2-13.png)
+
+emm，怎么感觉还不如原来。。。推荐使用 pretty，至少能左右对齐。
+
+## 4. 颜色
+
+颜色方面是已有颜色库的扩充，增加了更多的颜色和可选项。官方的说法是，原来的 CSS 不支持高清画质，而大多数人放在口袋里、放在身上或安装在墙上的显示屏具有广色域和高清色彩。显示屏的颜色处理速度比 CSS 快，现在 CSS 的更新可以与之一较高低了。
+
+#### 高清 CSS
+
+CSS [Color Level 4](https://www.w3.org/TR/css-color-4) 提出了高清 CSS 方案，从 Chrome 111 开始支持色彩空间和色域，他是在已有色域的基础上的颜色扩充，以适应现在更加高清显示的显示设备。
+
+官方推出 7 中色域：
+
+-   [sRGB](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#srgb)
+-   [RGB 98](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#a98-rgb)
+-   [Display p3](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#display-p3)
+-   [Rec2020](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#rec2020)
+-   [ProPhoto](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#prophoto-rgb)
+-   [美国商业行业信息署 (CIE)](https://en.wikipedia.org/wiki/CIE_1931_color_space)
+-   [HVS](https://www.cs.rochester.edu/courses/572/colorvis/gamutvis.html)（人像色域）
+
+颜色空间是色域的排列，它建立了形状以及获取颜色的方法。颜色级别 4 引入了 12中颜色空间用于从色域中查找颜色：
+
+-   [sRGB 线性](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#linear-srgb)
+-   [LCH](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#lch)
+-   [okLCH](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#oklch)
+-   [实验](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#lab)
+-   [okLAB](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#oklab)
+-   [Display p3](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#display-p3)
+-   [Rec2020](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#rec2020)
+-   [a98 RGB](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#a98-rgb)
+-   [ProPhoto RGB](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#prophoto-rgb)
+-   [XYZ](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#xyz-xyz-d50-xyz-d65)
+-   [XYZ d50](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#xyz-xyz-d50-xyz-d65)
+-   [XYZ d65](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#xyz-xyz-d50-xyz-d65)
+
+之前只有四种颜色空间：
+
+-   [Hex](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#hex), 即 16进制颜色
+-   [RGB](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#rgb)
+-   [HSL](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#hsl)
+-   [HWB](https://developer.chrome.com/docs/css-ui/high-definition-css-color-guide?hl=zh-cn#hwb)
+
+知道了概念，我们来看几种新的颜色定义。
+
+###### HWB
+
+
+![image.png](/images/2024-1-2/2024-1-2-14.png)
+
+HWB（色相、白度、黑度）是面向人类描述颜色的 sRGB 色域颜色空间：
+
+```css
+--modern: hwb(200deg 25% 25%);
+```
+
+###### `color()` 函数
+
+
+![image.png](/images/2024-1-2/2024-1-2-15.png)
+
+color() 是一个标准化空间，用于访问使用 RGB 通道的颜色空间。而且可扩容至基于 RGB 的任何广色域色彩空间。使用举例：
+
+```css
+--display-p3: color(display-p3 1 1 1);
+--srgb: color(srgb 1 1 1);
+```
+
+甚至之前的 rgb 也可以这么统一来写：
+
+```css
+--rgb: color(rgb 25 25 25)
+```
+
+###### 其他
+
+此外还有 lch / lab / oklch / OKLAB / dispaly-p3 等颜色空间，由于东西太多了，就不一样列出，上面有链接，可以自行点击查看。这类CIE 空间颜色都能够更好的表示整个人类可见的色谱。使用新的颜色空间还会影响颜色渐变和插值等功能。
+
+#### color-mix()
+
+![image.png](/images/2024-1-2/2024-1-2-16.png)
+
+他是用于颜色混淆的函数，灵感可能也是来自css预处理器。
+
+官方demo：https://codepen.io/web-dot-dev/pen/JjBZLrm
+
+为了便于理解，我们这里实现一个简单的切换颜色的例子：
+
+[主题颜色切换](https://code.juejin.cn/pen/7317573307016806435)
+
+上面的例子中，各个主题的颜色，通过混淆得来。我们拿一个来说明使用方式。
+
+`color-mix(in oklab, #0af 25%, black)`：在 oklab 色域空间内，将天蓝色的25%与黑色混合。此时文字的颜色如下：
+
+
+![image.png](/images/2024-1-2/2024-1-2-17.png)
+
+看着是黑色的，其实有点蓝韵。如果将 25% 调整到 75% 就会明显了：
+
+
+![image.png](/images/2024-1-2/2024-1-2-18.png)
+
+#### from 关键字
+
+可以看做是 color-mix 的扩展增强：
+
+`color: rgb(from green r g b)`
+
+等价于 ` color: rgb(0 128 0)`，意思是从 green 开始，拿到 rgb 的值，并在之后的参数中使用，他计算的是转换后的相对颜色。于是会有如下写法：
+
+```css
+// r g b 是三个变量，可以换顺序使用
+rgb(from green g g g) /* rgb(128 128 128) */
+rgb(from green b r g) /* rgb(0 0 128) */
+rgb(from green 0 0 g) /* rgb(0 0 128) */
+```
+当然聪明的你也能猜到，透明度也能当做变量：
+
+```css
+rgb(from rgba(0, 128, 0, .5) r g b / alpha) /* alpha=50% */
+```
+上面就相当于将颜色打成各个通道分量来实现混淆。我们来看一个：`background: hsl(from blue calc(h + 180) s l)`.
+
+这个是 hsl 的转变，其中第一个通道分量加了 180 后返回，其实是求蓝色的互补色：
+
+
+![image.png](/images/2024-1-2/2024-1-2-19.png)
+
+## 5. 响应式设计
+
+新的一年，响应式布局又有了新的写法。
+
+#### 查询容器大小
+
+
+![image.png](/images/2024-1-2/2024-1-2-20.png)
+
+相比于传统的媒体查询，容器查询更加细粒度，他可以应用在局部容器或者指定容器内:
+
+```css
+container: card / inline-size;
+```
+
+这样就创建了一个叫做 card 的适应内嵌大小的响应式容器，可以这样使用查询：
+
+```css
+/* 只有一个容器时，名字 card 可以省略 */
+@container card (max-width: 400px) {
+
+}
+```
+
+我们来看一个例子：[响应式容器](https://code.juejin.cn/pen/7317593902143012902)
+
+#### 容器样式
+
+此外，在 Chrome 111 中，样式查询已部分实现：可以使用 `@container style()` 查询父元素上的自定义属性的值。我们来看个例子（兼容性不好）：
+
+
+![image.png](/images/2024-1-2/2024-1-2-21.png)
+
+```css
+@container style(--theme: pink) {
+  .demo-btn {
+    background: linear-gradient(45deg, pink, violet);
+    border: 4px double #f452dc;
+  }
+}
+```
+上面的例子，根据变量 theme 的值动态添加样式，完整 demo 如下：
+
+https://codepen.io/web-dot-dev/pen/GRXZLvW
+
+
+#### :has()
+
+
+![image.png](/images/2024-1-2/2024-1-2-22.png)
+
+字面意思就是说选中拥有某个属性的元素：
+
+```css
+.card:has(.card__media) {
+  --color: #6300ff;
+}
+```
+上面的代码，是选中拥有一个类叫 card__media 的 card 元素。他可以让你在众多相同的类名叫 card 的元素中选中你想要的。
+
+其不但可以在 DOM 树中向上选择父级元素，也可以进行横向选择。
+
+比如有个列表：
+
+```html
+<ul class="dock">
+  <li></li>
+  ...
+  <li></li>
+</ul>
+```
+每一个 li 里是一个列表图片，我们想实现鼠标滑动变大，这么写：
+
+```css
+.dock li:hover {
+  width: 3em;
+}
+.dock li:hover img {
+  translate: 0% -15%;
+}
+```
+
+
+![image.png](/images/2024-1-2/2024-1-2-23.png)
+
+如果想实现 mac 系统那种，左右图片也会变大的动画，可以这么写：
+
+```css
+.dock li:hover + li,
+.dock li:has(+ li:hover) {
+  width: 2.5em;
+}
+```
+不但选择其下一个兄弟节点，还使用 has 选择其上一个兄弟节点：
+
+
+![image.png](/images/2024-1-2/2024-1-2-24.png)
+
+#### 媒体查询有了新功能
+
+原来已有的媒体查询功能得到了史诗级加强。
+
+###### 适应设备刷新率
+
+![image.png](/images/2024-1-2/2024-1-2-25.png)
+
+新增如下写法：
+
+```css
+@media (update: none) {
+
+}
+```
+
+对于大多数新版设备，其更新一般是 fast，但是针对电子阅读器以及低能耗付款系统等设备，其刷新率可能较慢，可以使用 slow 适配，其余的像打印机一类的，可以设置为 none。[demo](https://codepen.io/web-dot-dev/pen/PoyPMBw)
+
+根据不同的设备刷新率采用不同的 CSS 表现形式，意味着您可以节省电池电量或减少错误的视图更新。由于体验者不可能凑齐刷新率不同的设备不太容易，这里使用js来模拟说明：
+
+[官方demo：小鸭子摇头](https://code.juejin.cn/pen/7319044288761823258)
+
+> demo 是使用js模拟刷新率不同的设备，并不是对 update 的使用说明
+
+###### 媒体查询检查js脚本
+
+
+![image.png](/images/2024-1-2/2024-1-2-26.png)
+
+脚本媒体查询可用于检查 JavaScript 是否可用。这对于渐进式增强非常有用。在此媒体查询推出之前，一个用于检测 JavaScript 是否可用的策略是在 HTML 中放置一个 `nojs` 类，然后使用 JavaScript 将其移除。现在可以使用 css 来检测了：
+
+```css
+@media (scripting: enabled) {
+  .steam {
+    opacity: 1;
+  }
+}
+```
+
+###### 用于减低透明度的媒体查询
+
+
+![image.png](/images/2024-1-2/2024-1-2-27.png)
+
+非不透明界面可能会引起头痛，或者让各类视力缺陷人群造成视觉障碍。因此，Windows、macOS 和 iOS 设有系统偏好设置，可以降低或移除界面的透明度。这个针对 `prefers-reduced-transparency` 的媒体查询非常适合使用其他偏好设置媒体查询：
+
+```css
+svg {
+    --transparency: 50%;
+    
+    @media (prefers-reduced-transparency: reduce) {
+      --transparency: 95%;
+    }
+}
+```
+
+## 6. 交互
+
+#### 视图转换 API
+
+
+![image.png](/images/2024-1-2/2024-1-2-28.png)
+
+官方说明是增强css过渡，更好的减少卡顿和图形交叠。
+
+使用：`const viewTransition = document.startViewTransition(updateCallback)`
+
+使用方式很像 requestAnimationFrame，这个是在当前事件循环结束前执行回调，而我们今天的这个 API，会捕获网页的当前状态。这包括截取屏幕截图。完成后，系统会调用传递给 `.startViewTransition()` 的回调 updateCallback。这正是 DOM 发生变化的地方。然后，API 会捕获网页的新状态。
+
+官方说明如下：[startViewTransition](https://developer.chrome.com/docs/web-platform/view-transitions/?hl=zh-cn#why_do_we_need_this_feature)， 有兴趣的可以自行查看。
+
+#### linear()
+
+
+![image.png](/images/2024-1-2/2024-1-2-29.png)
+
+该函数用于模拟线性插值来近似计算加/减速类型的动画。使用方式如下：
+
+```css
+:root {
+  --custom-easing: linear(
+    0,
+    0.06,
+    0.25 18%,
+    1 36%,
+    0.81,
+    0.75,
+    0.81,
+    1,
+    0.94,
+    1,
+    1
+  );
+}
+```
+可以查看在线 [demo](https://linear-easing-generator.netlify.app/) 来创建一个使用案例。
+
+#### Scroll End API
+
+
+![image.png](/images/2024-1-2/2024-1-2-30.png)
+
+官方对滚动事件的增强，终于有了自己的滚动到底的检测了，这对于长列表渲染很有帮助：
+
+```js
+document.onscrollend = event => {
+  Toast('scroll end')
+}
+```
+
+#### 滚动条驱动动画
+
+这个是比较惊艳的更新了，大多数门户网站都有滚动懒加载或者淡入淡出的动画效果，这次改动补全了之前原生 css 没有滚动检测的空白。
+
+官方演示 demo：[Scroll-driven Animations (scroll-driven-animations.style)](https://scroll-driven-animations.style/)
+
+其主要是通过 `animation-timeline` 属性设置驱动，可选的驱动方式有 `scoll` 和 `view`。我们看下面的例子：[滚动动画](https://code.juejin.cn/pen/7319093484529877007)
+
+`animation: text steps(var(--chars)) forwards;` 来检测滚动的偏移量，并传给变量 --charsm，然后可以通过偏移量设置文字背景色的宽度：
+
+![image.png](/images/2024-1-2/2024-1-2-31.png)
+
+另一种驱动方式 view 这么定义：`animation-timeline: view();`，可通过 animation-range 设置变化范围，用于监测当前元素是否在可视区域，官方 demo：[CSS Wrapped 2023: Scroll-Driven Animations: View Timeline #CSSWrapped2023 (codepen.io)](https://codepen.io/web-dot-dev/pen/XWOqovr)
+
+#### 给 display: none 添加动画
+
+
+![image.png](/images/2024-1-2/2024-1-2-32.png)
+
+chrome 新增功能：`transition-behavior`，接受两个值：`normal` 和 `allow-discrete`，其中 `allow-discrete` 模式可实现离散转换。使用方式：
+
+```css
+.card {
+  transition: opacity 0.25s, display 0.25s;
+  transition-behavior: allow-discrete;
+}
+```
+
+demo: [删除卡片](https://codepen.io/web-dot-dev/pen/poQMLrN)
+
+#### `@starting-style`
+
+
+![image.png](/images/2024-1-2/2024-1-2-33.png)
+
+`@starting-style` CSS 规则以新的 Web 功能为基础，用于在 `display: none` 之间添加动画效果，但也可以用于其他的 transition。可以看这个 [demo](https://codepen.io/web-dot-dev/pen/OJdjjdX)
+
+弹窗默认是隐藏在屏幕之下的：
+
+```css
+dialog {
+  transition: translate 0.7s ease-out, overlay 0.7s ease-out, display 0.7s ease-out allow-discrete;
+  translate: 0 100vh;
+}
+```
+
+设置开关：
+
+```css
+dialog[open] {
+  translate: 0 0;
+}
+```
+
+但是这个是突然出现的，明明设置了 transition: translate，过渡却没出来，应该是 h5 的 dialog 的 open 看做 display 的修改了吧。我们设置过渡：
+
+```css
+@starting-style {
+  dialog[open] {
+    translate: 0 100vh;
+  }
+}
+```
+此时就有动画了。
+
+#### overlay 、:popover-open 与 ::backdrop
+
+![image.png](/images/2024-1-2/2024-1-2-34.png)
+
+css 原生也开始支持弹出层了，除了上面 h5 的 dialog，这里还有 popover 的 css 属性。
+
+官方 demo：[CSSWrapped2023 Overlay (codepen.io)](https://codepen.io/web-dot-dev/pen/zYeJbgw)
+
+## 7. 组件
+
+#### popover
+
+
+![image.png](/images/2024-1-2/2024-1-2-35.png)
+
+该组件有如下特点：
+
+-   **晋升到顶层**。弹出式窗口会显示在网页其余部分之上的单独图层上，因此无需调整 z-index。
+-   **轻关闭功能**。点击弹出窗口区域以外的位置将关闭弹出窗口并返回焦点。
+-   **默认焦点管理**。打开弹出式窗口会使下一个标签页停止在弹出式窗口内显示。
+-   **无障碍键盘绑定。** 点按 `esc` 键或双重切换按钮会关闭弹出式窗口并返回焦点。
+-   **可访问的组件绑定**。从语义上将弹出式窗口元素连接到弹出式窗口触发器。
+
+只需要给一个普通的 div 加上 `popover` 属性，然后给按钮呢加上 `popovertarget` 对应这个 div 的 id 即可。详情可以查看 [demo](https://code.juejin.cn/pen/7319331878450757670):
+
+
+![image.png](/images/2024-1-2/2024-1-2-36.png)
+
+#### hr 标签焕发新春
+
+之前对 hr 标签的理解就是很丑的横线，比较鸡肋，UI库都会去自己实现分割线，这与 H5 的初衷相违背，制定标准的人都希望自己的组件能被各个主流 UI 库使用来进行二次开发。
+
+> 但现在路还很长，select 组件还是功能欠缺，各个UI库不得不自己实现
+
+现在 hr 可以和 select 结合使用了：
+
+```html
+<select name="majors" id="major-select">
+  <option value="">Select a favorite feature</option>
+  <hr>
+  <optgroup label="Foundations">
+    <option value="trig">Trigonometric functions</option>
+    <option value="nth">Complex nth-* selection</option>
+    <option value="nesting">Nesting</option>
+    <option value="subgrid">Subgrid</option>
+    <option value="mq-ranges">Media query range syntax</option>
+  </optgroup>
+  ...
+```
+
+感觉还不错（但是原生 select 连搜索都不支持，可能企业级落地还有些困难）：
+
+
+![image.png](/images/2024-1-2/2024-1-2-37.png)
+
+#### `:user-valid` 和 `:user-invalid`
+
+![image.png](/images/2024-1-2/2024-1-2-38.png)
+
+这两个伪类是用于用户与输入内容校验的，在进行明显互动后校验表单是否无效。
+
+下面是个例子（校验原生 h5 表单的规则），可用于说明与 :valid 的区别：[表单校验](https://code.juejin.cn/pen/7319341325450412067)
+
+#### 手风琴组件
+
+
+![image.png](/images/2024-1-2/2024-1-2-39.png)
+
+这个组件用的还是 h5 的 details 标签，不是个新东西了，但是其增加了`name` 属性的支持。使用此属性时，具有相同 `name` 值的多个 `<details>` 元素会形成语义组。
+
+我们来看 [demo](https://code.juejin.cn/pen/7319383154270142479)
+
+----
+
+## 8. 总结
+
+前端 CSS 的发展趋势是紧贴用户主流使用习惯，并借鉴各个 UI 库和框架的使用方式改造，与 H5 标签结合，力图完善自己的组件体系，跟上时代的变化潮流。整体方向如下：
+
+- 响应式和移动优先设计
+- CSS 变量与流程控制操作越来越多，打通与 js 的屏障
+- 动画与过渡优化
+- 颜色空间扩充
+- 易用性增强，函数扩充
+- 性能优化

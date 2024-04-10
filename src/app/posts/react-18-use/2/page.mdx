@@ -1,0 +1,527 @@
+# 新版React官方文档解读（二）- Hooks 之 useState 和 useReducer
+---
+
+官网地址：[React](https://beta.reactjs.org/)
+
+## 1. useState
+
+useState 可以说是使用的最频繁的一个 hook 了。接下来看看官网怎么解释他的用法。他是一个在函数式组件内添加暂存状态的函数，在组件更新渲染时，能够保留state里变量的状态不被初始化。
+
+同其他 hook 一样，不能在循环和判断条件里使用，官方推荐在组件顶部使用：
+
+```js
+import { useState } from 'react';  
+
+function MyComponent() {  
+    const [age, setAge] = useState(28);  
+    const [name, setName] = useState('Taylor');  
+    const [todos, setTodos] = useState(() => createTodos());  
+    // ...
+}
+```
+
+### 接受参数：initialState
+
+接受一个初始化的值。在state创建时，会将值记录为这个初始化的值，不传默认是 `undefined`。
+
+> P.S. 如果初始化值传为一个函数，它将被作为初始化函数。要求必须是纯函数，不带任何参数，并且应该有返回值。初始化函数的返回将被记录为初始状态。该初始化函数只会加载一次，在下一个组件渲染时，不会被重新执行
+
+### 返回值
+
+他的返回值是一个数组解构的变量。
+
+- 状态
+
+第一个变量是状态变量本身
+
+- 设置状态函数
+
+第二个变量是设置状态的函数，调用这个函数会重新设置state值并触发组件的 re-render.
+
+设置状态的函数使用范例：
+
+```js
+const [name, setName] = useState('Edward');  
+
+function handleClick() {  
+    setName('Taylor');  
+    setAge(a => a + 1);  
+    // ...
+}
+```
+
+### 关于设置函数（比如 setName）
+
+- 入参
+
+参数是要设置的新状态的值，可以是任何类型。
+
+> P.S. 如果你传了一个函数进去（比如上面的 setName），这个函数会被作为更新函数对待。同样必须是纯函数，这个函数的参数是更新之前的状态值，函数的返回值会被作为新的状态值。React 会把你的更新函数放到一个任务队列里（fiber调度器），在下一个渲染周期到来时，fiber会遍历队列，按照一定的优先级执行函数并清空对列。
+
+- 返回值
+
+### 新的状态值
+
+- ⭐️ 设置状态函数的注意事项
+
+1. 状态只在下次更新时异步变化，如果在设置状态后立即读取状态值，读取到的还是老的状态。
+2. 如果提供的新值与当前状态相同（由 Object.is 比较确定），`React` 将跳过重新渲染组件及其子组件。
+3. `React` 是批量合并更新 state 的。多个状态更新操作会被放入一个队列中，然后在适当的时机进行合并和批量处理。这可以防止在单个事件期间多次重新渲染。在极少数情况下，需要强制 `React` 提前更新界面，例如访问 DOM，可以使用 flushSync。
+4. 在渲染期间调用 set 函数只允许在当前渲染组件中。 `React` 将丢弃其输出并立即使用新状态再次渲染。（下边有在渲染时设置状态值的例子）
+5. 在严格模式 + 开发环境下，初始化函数会被调用两次来帮助你调试错误。如果你使用的是纯函数，第二次结果会被忽略掉。
+
+### 注意事项
+
+1. 作为一个hook，他在函数式组件内是单向链表存储的，所以必须放在组件顶层使用。如果你需要在循环或者条件语句里使用，就提取成单独的组件使用。
+2. 在严格模式 + 开发环境下，初始化函数会被调用两次来帮助你调试错误。如果你使用的是纯函数，第二次结果会被忽略掉。
+
+### 各种使用例子
+
+#### 1. 在设置状态后立即读取状态值
+
+```js
+function handleClick() {
+    const [name, setName] = useState('Taylor');
+    //...
+    setName('Robin');  
+    console.log(name); // Still "Taylor"!  
+}
+```
+
+如果想要获取到变化后的值，可以使用 `useEffect`
+
+#### 2. 基础使用：多状态与表单结合
+
+```jsx
+import { useState } from 'react';
+
+export default function Form() {
+  const [name, setName] = useState('Taylor');
+  const [age, setAge] = useState(42);
+
+  return (
+    <>
+      <input
+        value={name}
+        onChange={e => setName(e.target.value)}
+      />
+      <button onClick={() => setAge(age + 1)}>
+        Increment age
+      </button>
+      <p>Hello, {name}. You are {age}.</p>
+    </>
+  );
+}
+```
+
+#### 3. 在定时器中使用
+
+在定时器回调函数中使用组件：
+
+```js
+const [count, setCount] = useState(0);
+
+const counterIntervalFunction = () => {
+  console.log(count);
+  setCount(count + 1)
+};
+
+// ...
+const interval = setInterval(counterIntervalFunction, 1000);
+```
+
+上面的例子中，定时器中试图修改state的值，但是，因为闭包的原因，counterIntervalFunction中打印的结果每次都是 1，并没有实现累加的效果。
+
+此时可以使用第二种写法：
+
+```js
+setCount(prev => prev + 1)
+```
+
+也可以借助 useRef：
+
+```js
+const ref = useRef({ count });
+useEffect(() => { 
+    ref.current = { count }
+}, [count]);
+```
+这样，在 counterIntervalFunction 里拿 ref.current.count 就可以啦。当然了，你也可以把整个定时器都放在基于count的 `useEffect` 中，一样可以实现相同的功能。
+
+#### 4. 基于上一次状态更新状态值
+
+```js
+function handleClick() {  
+    // 错误写法
+    setAge(age + 1); // setAge(42 + 1)  
+    setAge(age + 1); // setAge(42 + 1)  
+    setAge(age + 1); // setAge(42 + 1)  
+    
+    // 正确写法 ✅
+    setAge(a => a + 1); // setAge(42 => 43)  
+    setAge(a => a + 1); // setAge(43 => 44)  
+    setAge(a => a + 1); // setAge(44 => 45)
+}
+```
+
+#### 5. state是一个对象时，修改state需要改变引用
+
+```js
+// 不生效
+form.firstName = 'Taylor';
+
+// 推荐
+setForm({  
+    ...form,  
+    firstName: 'Taylor'  
+});
+```
+
+#### 6. 避免初始化函数重复执行
+
+考虑下面的例子：
+
+```js
+function TodoList() {  
+    const [todos, setTodos] = useState(createInitialTodos());  
+    // ...
+}
+```
+
+虽然createInitialTodos有效执行只有组件挂载时一次，但在之后组件历次re-render时都会被执行，这就造成了资源浪费。其实你只需要传递初始化函数声明就行了：
+
+```js
+function TodoList() {  
+    const [todos, setTodos] = useState(createInitialTodos);  
+    // ...
+}
+```
+
+#### 7. 重置状态值
+
+可以借助 `React` 最常见的 key 值来重置状态：
+
+```js
+import { useState } from 'react';
+
+export default function App() {
+  const [version, setVersion] = useState(0);
+
+  function handleReset() {
+    setVersion(version + 1);
+  }
+
+  return (
+    <>
+      <button onClick={handleReset}>Reset</button>
+      <Form key={version} />
+    </>
+  );
+}
+
+function Form() {
+  const [name, setName] = useState('Taylor');
+
+  return (
+    <>
+      <input
+        value={name}
+        onChange={e => setName(e.target.value)}
+      />
+      <p>Hello, {name}.</p>
+    </>
+  );
+}
+```
+
+上面的例子中，把一个 state 当做key传递给表单组件，当需要重置表单组件时，改变这个key值，React组件就会自自动 re-create 一次表单，达到了重置的目的，重置后，表单组件里的所有state都会重置。
+
+#### 8. 组件渲染期间 改变 state
+
+一般上，状态值的修改都会放在一个事件的handleBar里，但是，有时候你想要在除了事件以外的响应中改变状态值 （比如 props 改变的时候），应该怎么办呢？下面给出一个范例：
+
+```js
+import { useState } from 'react';
+
+export default function CountLabel({ count }) {
+  const [prevCount, setPrevCount] = useState(count);
+  const [trend, setTrend] = useState(null);
+  if (prevCount !== count) {
+    setPrevCount(count);
+    setTrend(count > prevCount ? 'increasing' : 'decreasing');
+  }
+  return (
+    <>
+      <h1>{count}</h1>
+      {trend && <p>The count is {trend}</p>}
+    </>
+  );
+}
+```
+上面的例子使用起来需注意，`prevCount !== count`的判断条件不能省去，不然就会陷入反复 set 状态的死循环里。
+
+当然了，你也可以像上一篇文章那样，使用 useMemo 获得计算属性。
+
+### Q&A
+
+#### 1. 我已经更新了状态，但是console.log打印了旧的值
+
+```js
+function handleClick() {  
+    console.log(count); // 0  
+    setCount(count + 1); // Request a re-render with 1  
+    console.log(count); // Still 0!  
+    
+    setTimeout(() => {  
+        console.log(count); // Also 0!  
+    }, 5000);  
+}
+```
+
+因为React 的state类似于快照，更新了状态后，并不影响之前已经在fiber任务事件循环里的状态。如果需要立即使用，可以借助临时变量：
+
+```js
+const nextCount = count + 1;  
+
+setCount(nextCount);  
+
+console.log(count); // 0  
+
+console.log(nextCount); // 1
+```
+
+#### 2. 我已经更新了状态，但是界面不变化
+
+前后两次修改的状态，如果相等（Object.is）的话，就不会去触发渲染。错误示范：
+
+```js
+obj.x = 10; // 🚩 Wrong: mutating existing object  
+setObj(obj); // 🚩 Doesn't do anything
+```
+
+正确使用方式：
+
+```js
+// ✅ Correct: creating a new object
+setObj({
+  ...obj,
+  x: 10
+});
+```
+
+#### 3. 控制台报错 “Too many re-renders. React limits the number of renders to prevent an infinite loop.”
+
+一般这种情况就是组件渲染进入了死循环。下面是一个可能的例子及解决方案：
+
+```js
+// 🚩 Wrong: calls the handler during render
+return <button onClick={handleClick()}>Click me</button>
+
+// ✅ Correct: passes down the event handler
+return <button onClick={handleClick}>Click me</button>
+
+// ✅ Correct: passes down an inline function
+return <button onClick={(e) => handleClick(e)}>Click me</button>
+```
+
+#### 4. 我想要把一个函数作为 state，但是却当成了初始函数执行了
+
+上面的讲过，useState 的入参如果是一个函数，则会将函数执行结果作为初始函数。如果一定要传一个函数作为状态，可以使用高阶函数：
+
+```js
+const [fn, setFn] = useState(() => someFunction);
+
+function handleClick() {
+  setFn(() => someOtherFunction);
+}
+```
+
+## 2. useReducer
+
+useReducer 是一个一般化的 useState，比 useState 多了一个处理函数，该函数可以根据不同的分发状态来相应的改变状态。可以这么理解，useReducer 是一个提前写好了怎么处理 state 的函数的 useState。
+
+声明格式：
+
+```js
+const [state, dispatch] = useReducer(reducer, initialArg, init)
+```
+
+### 接收参数
+
+1. reducer
+
+reducer 函数指定如何更新状态，必须是一个纯函数。
+
+2. initialArg
+
+状态的初始值
+
+3. init
+
+可选初始化处理函数。如果未指定，则初始状态设置为 initialArg。否则，初始状态设置为调用 `init(initialArg)` 的结果。
+
+### 返回值
+
+1. state 为当前的状态值
+2. dispatch 函数，用于更新状态
+
+### 注意事项
+
+使用方式同 useState
+
+### 基本使用
+
+```js
+import { useReducer } from 'react';
+
+function reducer(state, action) {
+  // ...
+}
+
+const [state, dispatch] = useReducer(reducer, { age: 42 });
+
+function handleClick() {
+  dispatch({ type: 'incremented_age' });
+  // ...
+}
+```
+
+#### dispatch 函数
+
+接受一个 state 和 action。action 可以是任意类型的值，可以是一个标志位 + payload 的形式；同时，dispatch 函数没有返回值。
+
+### 使用例子
+
+###### 1. 与form表单结合
+
+```jsx
+import { useReducer } from 'react';
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'incremented_age': {
+      return {
+        ...state,
+        age: state.age + 1
+      };
+    }
+    case 'changed_name': {
+      return {
+        name: action.nextName,
+        age: state.age
+      };
+    }
+  }
+  
+  // 这里处理未知情况，可以返回一个自定义对象，也可以抛出错误
+  throw Error('Unknown action: ' + action.type);
+}
+
+const initialState = { name: 'Taylor', age: 42 };
+
+export default function Form() {
+  const [state, dispatch] = useReducer(reducer, initialState);
+
+  function handleButtonClick() {
+    dispatch({ type: 'incremented_age' });
+  }
+
+  function handleInputChange(e) {
+    dispatch({
+      type: 'changed_name',
+      nextName: e.target.value
+    }); 
+  }
+
+  return (
+    <>
+      <input
+        value={state.name}
+        onChange={handleInputChange}
+      />
+      <button onClick={handleButtonClick}>
+        Increment age
+      </button>
+      <p>Hello, {state.name}. You are {state.age}.</p>
+    </>
+  );
+}
+```
+
+表单元素的 value 是 state内部的值，在表单元素改变的事件中，dispatch这个reducer，dispatch里传了个 type和一个 payload 项：nextName，此时，reducer就可以接收参数了：state就是当前变更前的状态值，action就是 dispatch 传递的参数。
+
+> P.S. reducer 函数里不能直接改 state：`state.age = state.age + 1;`，他应该返回一个新的引用的对象，这个对象会自动被 useReducer 设置。
+
+###### 2. 避免重新执行初始函数
+
+考虑下面的例子：
+
+```js
+function createInitialState(username) {  
+    // ...  
+}  
+
+function TodoList({ username }) {  
+    const [state, dispatch] = useReducer(reducer, createInitialState(username));  
+    // ...
+}
+```
+
+第二个参数本来是初始化状态的位置，传了个函数调用，而不是函数声明，在每次组件re-render时都会被执行，影响性能。
+
+考虑如下改造：
+
+```js
+const [state, dispatch] = useReducer(reducer, username, createInitialState);
+```
+第二个参数还是静态的初始值，第三个参数是自定义的初始化处理函数，在初始化时，会将 `createInitialState(username)` 的返回值作为初始值。
+
+### Q&A
+
+###### 1. dispatch 后如何使用最新的状态值
+
+与 useState 类似，需使用局部变量：
+
+```js
+const action = { type: 'incremented_age' };
+dispatch(action);
+
+const nextState = reducer(state, action);
+console.log(state);     // { age: 42 }
+console.log(nextState); // { age: 43 }
+```
+
+###### 2. 我的 reducer 为什么总是被执行了多次？
+
+这个还是跟严格模式和开发环境有关系的。开发环境会帮你检测你的 reducer 是否是纯函数。考虑下面的例子：
+
+```js
+function reducer(state, action) {
+  switch (action.type) {
+    case 'added_todo': {
+      // 🚩 Mistake: mutating state
+      state.todos.push({ id: nextId++, text: action.text });
+      return state;
+    }
+    // ...
+  }
+}
+```
+上面的 reducer 就不是一个纯函数，在开发环境中，执行两次，todos数组数据就会错乱，开发者就很容易发现问题并及时改正。下面给出正确的参考：
+
+```js
+// ✅ Correct: replacing with new state
+return {
+  ...state,
+  todos: [
+    ...state.todos,
+    { id: nextId++, text: action.text }
+  ]
+};
+```
+
+> 不知不觉，写到这里已经 1W 字了...
+
+----
+
+本期的官网解读就到这里啦，债见！

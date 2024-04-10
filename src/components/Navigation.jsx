@@ -194,6 +194,7 @@ export const navigation = [
       { title: '前端工程化', href: '/posts/engineering' },
       { title: '组件库 UI', href: '/posts/UI' },
       { title: 'CSS探索', href: '/posts/css' },
+      { title: 'react 18 官网解读', href: '/posts/react-18-use' },
       { title: 'react 源码分析', href: '/posts/react-source' },
       { title: 'react router v6 官网解读', href: '/posts/react-router-6' },
       { title: '前端性能分析系列', href: '/posts/performance' },

@@ -1,0 +1,423 @@
+# 新版React官方文档解读（三）- Hooks 之 useEffect、useLayoutEffect 和 useInsertionEffect
+---
+
+- 官网地址：[React](https://beta.reactjs.org/)
+
+## 1. 使用场景对比
+
+- `useEffect`: 用于副作用捕获，在 dom 元素渲染之后调用，常用于页面数据处理工作。
+- `useLayoutEffect`: useEffect 的一个版本，在 DOM 更新之后同步执行，但在浏览器绘制之前执行，常用于页面元素布局工作，可能会阻塞页面渲染。
+- `useInsertionEffect`: useEffect 的一个版本，在 DOM 更新前执行。常用于 CSS-in-JS 插入动态样式。
+
+
+## 2. useEffect
+
+useEffect 是一个捕获副作用的函数，用来代替类式组件中组件的生命周期函数。声明方式如下：
+
+```js
+useEffect(setup, dependencies)
+```
+
+### 参考范例
+
+注意需在组件顶层使用
+
+```js
+function ChatRoom({ roomId }) {
+  const [serverUrl, setServerUrl] = useState('https://localhost:1234');
+
+  useEffect(() => {
+    const connection = createConnection(serverUrl, roomId);
+    connection.connect();
+    return () => {
+      connection.disconnect();
+    };
+  }, [serverUrl, roomId]);
+  // ...
+}
+```
+
+### 接收参数
+
+1. setup：具有 Effect 逻辑的设置函数。当你的组件被添加到 DOM 时，React 将运行你的设置函数。在每次使用更改的依赖项重新渲染后，React 将首先使用旧值运行清理函数（如果你提供了它），然后使用新值运行你的设置函数。在你的组件从 DOM 中移除后，React 将运行你的清理函数。
+
+其中清理函数范例如下：
+
+```js
+useEffect(
+    // 设置函数
+    () => {
+        const connection = createConnection(serverUrl, roomId);
+        connection.connect();
+
+        // 清理函数
+        return () => {
+            connection.disconnect();
+        };
+    },
+    // 依赖
+    [serverUrl, roomId]
+);
+```
+2. 依赖项（可选）：是一个数组，通过 `Object.is` 来依次判断各个依赖项是否变化，若有至少一个发生变化，则执行设置函数和清理函数。如果有多个依赖项更新，在一个fiber更新周期内，设置函数和清理函数也**只会执行一次**。若省略此参数，设置函数和清理函数将在每次组件渲染时执行。
+
+### 返回参数
+
+undefined
+
+### 注意事项
+
+1. 他是一个hook，只能在函数式组件最外层使用，且不能放在循环和条件语句中。
+2. 他的作用是检测依赖项变化后执行，若为空数组依赖，则默认在组件挂载时执行一次。
+3. 严格模式下 `useEffect` 有一种特殊行为，即在第一次渲染之前会运行一个额外的设置和清理循环，这个循环的目的是为了验证设置逻辑和清理逻辑是否相互匹配，以及清理逻辑是否能够正确地停止或撤销设置逻辑所做的操作。如果你在严格模式下遇到了与 `setup 和 cleanup` 相关的问题，官方建议你实现适当的清理函数来解决。这样可以确保在组件卸载或重新渲染时进行必要的清理操作，避免潜在的问题和错误。
+4. 如果依赖项中的部分变量或者函数定义在了组件内部，就会有风险：组件每次渲染导致这个函数或者变量重新加载，进而导致 `useEffect` 每次都执行。考虑提取修改逻辑代码或者使用 `useCallback` 技术。
+5. `useEffect` 是在 dom 流绘制完成后执行的，如果你想要页面初始化过程中在该函数中处理 dom 结构，可以考虑放在 useLayoutEffect 中。
+6. `useEffect` 仅在客户侧能使用，服务侧使用详见我之后的文章。
+
+### 运行流程
+
+我们使用上面的聊天室的例子来解释一下 `useEffect` 运行流程。React 会在必要时调用一次或多次你的设置和清理函数。
+
+1. 组件初始化时，useEffect 的设置函数执行一次
+2. 依赖项更新时：
+- 使用旧的props和state，清理函数执行一次
+- 使用新的props和state，设置函数执行一次
+3. 组件销毁或者重渲染时，清理函数会执行一次
+
+> useEffect 的作用在于提供一种将 `React`非受控的系统与 `React` 的状态链接的一个媒介。`React`非受控系统比如 setInterval、addEventListener、animation.start() 等。如果没有非受控系统参与，useEffect 往往不是必须的。
+
+### 各种使用例子
+
+#### 1. 监听鼠标事件
+
+下面的例子，监听了鼠标指针滑动事件，并在鼠标指针下方设置跟随的圆形阴影装饰：
+
+```js
+import { useState, useEffect } from 'react';
+
+export default function App() {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    function handleMove(e) {
+      setPosition({ x: e.clientX, y: e.clientY });
+    }
+    window.addEventListener('pointermove', handleMove);
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+    };
+  }, []);
+
+  return (
+    <div style={{
+      position: 'absolute',
+      backgroundColor: 'pink',
+      borderRadius: '50%',
+      opacity: 0.6,
+      transform: `translate(${position.x}px, ${position.y}px)`,
+      pointerEvents: 'none',
+      left: -20,
+      top: -20,
+      width: 40,
+      height: 40,
+    }} />
+  );
+}
+```
+
+#### 2. 设置一段动画（部分代码）
+
+点击按钮，在页面渐变的显示一个块级元素（[完整代码](https://codesandbox.io/s/ld0mxv?file=/animation.js:463-472&utm_medium=sandpack)）：
+
+```js
+useEffect(() => {
+    const animation = new FadeInAnimation(ref.current);
+    animation.start(1000);
+    return () => {
+      animation.stop();
+    };
+  }, []);
+```
+
+#### 3. 追踪元素经过可视区域（部分代码）
+
+下面的代码，在打了 ref 的 div 进入可视区域后，添加背景色和字体色，离开可视区域后样式复原：
+
+```js
+useEffect(() => {
+    const div = ref.current;
+    const observer = new IntersectionObserver(entries => {
+      const entry = entries[0];
+      if (entry.isIntersecting) {
+        document.body.style.backgroundColor = 'black';
+        document.body.style.color = 'white';
+      } else {
+        document.body.style.backgroundColor = 'white';
+        document.body.style.color = 'black';
+      }
+    });
+    observer.observe(div, {
+      threshold: 1.0
+    });
+    return () => {
+      observer.disconnect();
+    }
+  }, []);
+```
+
+#### 4. 在自定义 Hook 中使用
+
+我们还以上面聊天室的例子做说明。上面的功能是 roomId 和 service 切换就自动关闭旧的链接，打开新的链接，所有的聊天链接动作都一样，可以提取成公共组件来使用：
+
+```js
+function useChatRoom({ serverUrl, roomId }) {
+  useEffect(() => {
+    const options = {
+      serverUrl: serverUrl,
+      roomId: roomId
+    };
+    const connection = createConnection(options);
+    connection.connect();
+    return () => connection.disconnect();
+  }, [roomId, serverUrl]);
+}
+```
+
+这样，只需要使用这个函数就能完成聊天室的链接工作：
+
+```js
+useChatRoom({  
+    roomId: roomId,  
+    serverUrl: serverUrl  
+});
+```
+
+当然了，[全局非受控事件（addEventListener）](https://codesandbox.io/s/b006ec?file=/useWindowListener.js&utm_medium=sandpack)、[可视区域监听](https://codesandbox.io/s/m9drvd?file=/useIntersectionObserver.js&utm_medium=sandpack)也可以封装为一个独立的 Hook 来使用。
+
+#### 5. 使用定时器操作 state
+
+如果想要在 `useState` 里使用定时器操作状态值，你可能会这样写：
+
+```js
+unction Counter() {  
+    const [count, setCount] = useState(0);  
+
+    useEffect(() => {  
+        const intervalId = setInterval(() => {  
+            setCount(count + 1); // You want to increment the counter every second...  
+        }, 1000)  
+
+        return () => clearInterval(intervalId);  
+    }, [count]); // 🚩 ... but specifying `count` as a dependency always resets the interval.  
+    // ...  
+}
+```
+
+上面的例子中，count 是一个响应值，在 useEffect 中引入了他的依赖，同时，这是函数中又改变了他的值，这就导致了 setInterval 函数会被反复的执行，定时器每次都会创建一个新的出来。代码逻辑出现错误不说，也浪费了内存空间。
+
+解决方案其实很简单，上一篇文章讲 `useState` 的时候提到过，useState 内部可以传一个函数，他的参数就是上一次更新完之后的状态值，所以这里并不需要去拿 count 这个变量：
+
+```js
+useEffect(() => {
+  const intervalId = setInterval(() => {
+    setCount(c => c + 1); // ✅ Pass a state updater
+  }, 1000);
+  return () => clearInterval(intervalId);
+}, []); // ✅ Now count is not a dependency
+```
+
+### 关于依赖
+
+不推荐不引入必须的依赖或者添加额外的不需要的依赖项。你的依赖项的选择取决于 `useEffect` 包裹的代码。
+
+依赖的选择不仅包括设置函数内所应用的变量、函数，还应考虑到各个变量、函数各自的引用依赖。如果引用的函数内的变量变化引起了该函数重新设置，进而便会触发 `useEffec` 执行。
+
+在上面的聊天室例子中，rootId 是通过用户下拉切换得来的，可以看做是一个响应式数据；但是 serverUrl 是一个常量字符串，完全不需要放在 state 里，进而也可以移出依赖项：
+
+```js
+useEffect(() => {  
+    const connection = createConnection(serverUrl, roomId);  
+    connection.connect();  
+
+    return () => connection.disconnect();  
+}, [roomId]); // ✅ All dependencies declared
+```
+
+如果包裹的函数没有任何可响应的数据，那么就用一个空数组即可。
+
+### 风险项
+
+可以通过一定的注释欺骗依赖项检查，比如：
+
+```js
+useEffect(() => {
+  // ...
+  // 🔴 Avoid suppressing the linter like this:
+  // eslint-ignore-next-line react-hooks/exhaustive-deps
+}, []);
+```
+
+这种情况在你肥肠明确包裹函数的依赖关系时才可使用，但是这同样不利于团队合作中的代码维护。如果包裹函数中的变量或者函数在代码迭代维护过程中变成了响应式的，但是这里又抑制了告警提示，可能会出现难以排查的问题。
+
+> P.S. 可能你会觉得: 我使用空数组就是表示组件初始化加载时调用的啊，为什么还要给我弹警告？这里，作者建议，不要在函数式组件里谈生命周期，这里只有响应式副作用和常量。
+
+## 3. 实验性API：useEffectEvent
+
+> 该API还处于试验阶段，正式release版尚未发布。
+
+理论上，依赖更新了，设置函数就会重新执行，考虑下面记录页面访问量的代码：
+
+```js
+function Page({ url, shoppingCart }) {  
+    useEffect(() => { 
+        // ...
+        logVisit(url, shoppingCart.length);  
+    }, [url, shoppingCart]); // ✅ All dependencies declared  
+    // ...  
+}
+```
+url和shoppingCart变化，都会重新调用logVisit函数来增加访问计数。但是，你只希望访问url变化时才增加访问量，shoppingCart变化时logVisit不要重新执行，但是在执行时，购物车又得是最新的数据，怎么做呢？
+
+直接移除依赖可能会影响函数内部其他地方的变化。此时可以使用 `useEffectEvent`:
+
+```js
+function Page({ url, shoppingCart }) {
+  const onVisit = useEffectEvent(visitedUrl => {
+    // 非响应式的，即可以拿到实时其他响应式数据，又避免了他的变化引起外部更新
+    logVisit(visitedUrl, shoppingCart.length)
+  });
+
+  useEffect(() => {
+    onVisit(url);
+  }, [url]); // ✅ All dependencies declared
+  // ...
+}
+```
+上面的代码，在url变化后，会执行onVisit -> logVisit函数，被 `useEffectEvent` 包裹的函数不是响应式的，所以这里使用了响应值shoppingCart，既可以及时拿到最新的购物车信息，又避免了购物车变化引起包裹onVisit函数的组件的变化。
+
+> P.S. 他的使用方式同 useEvent
+
+## 4. useLayoutEffect
+
+`useLayoutEffect` 是 `useEffect` 的一个版本。一般用在控制页面渲染的工作中，其在页面渲染过程之前调用。（会影响性能）
+
+### 使用场景
+
+#### 1.页面初始化时获取矩形的高度
+
+在元素渲染之前，获取一个 ref 指向元素的高度，并设置给组件的state：
+
+```js
+import { useState, useRef, useLayoutEffect } from 'react';
+
+function Tooltip() {
+  const ref = useRef(null);
+  const [tooltipHeight, setTooltipHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    const { height } = ref.current.getBoundingClientRect();
+    setTooltipHeight(height);
+  }, []);
+  // ...
+}
+```
+
+#### 2. 在页面重绘之前改动布局
+
+上面的例子中，tooltip 组件需要在页面渲染时获取挂载元素的高度，进而确认在哪个方向上渲染：
+
+```js
+useLayoutEffect(() => {
+    const { height } = ref.current.getBoundingClientRect();
+    setTooltipHeight(height);
+    console.log('Measured tooltip height: ' + height);
+  }, []);
+
+  let tooltipX = 0;
+  let tooltipY = 0;
+  if (targetRect !== null) {
+    tooltipX = targetRect.left;
+    tooltipY = targetRect.top - tooltipHeight;
+    if (tooltipY < 0) {
+      // It doesn't fit above, so place below.
+      tooltipY = targetRect.bottom;
+    }
+  }
+  
+  // ...
+  
+  return createPortal(
+    <TooltipContainer x={tooltipX} y={tooltipY} contentRef={ref}>
+      {children}
+    </TooltipContainer>,
+    document.body
+  );
+```
+完整例子见[官网demo](https://codesandbox.io/s/bj8hpt?file=/TooltipContainer.js&utm_medium=sandpack)
+
+### 注意事项
+
+在使用react SSR时，初始的 HTML渲染会早于 js 脚本，但是在服务端没有布局信息，所以在 js 脚本加载完毕后，页面可能会出现问题，汇总如下：
+
+1.  不一致的渲染结果：由于服务端渲染和客户端渲染的执行环境不同，`useLayoutEffect` 在服务端和客户端可能会产生不一致的结果。这可能导致在服务端渲染时出现闪烁、布局错乱或不符合预期的行为。
+2.  无效的 DOM 操作：`useLayoutEffect` 在服务端执行时，无法直接访问到真实的 DOM。因此，在这个阶段对 DOM 进行的操作可能会导致错误或无效的结果。
+3.  性能问题：由于 `useLayoutEffect` 的执行是同步的，并且在每个渲染周期都会被调用，可能会对服务器的性能产生负面影响。在大规模的 SSR 项目中，频繁的同步 DOM 操作可能会导致性能下降和响应时间延长。
+
+> 建议：服务端渲染的项目中使用 `useEffect` 替代，并使用 [`<Suspense>`](https://react.dev/reference/react/Suspense) 懒加载组件，或者使用 hydration 模式开发。
+
+## 5. useInsertionEffect
+
+`useInsertionEffect` 是 `useEffect` 的一个版本。其在 DOM 变更之前触发，是一个结合 CSS-in-JS 的样式修改的自定义 hook。
+
+### 使用场景
+
+###### 从 CSS-in-JS 库中插入动态样式
+
+在运行中的代码中，动态插入 style 样式，有两个弊端：
+
+1. 迫使浏览器更频繁地重新计算样式。
+2. 如果运行时注入发生在 React 生命周期的错误时间，它可能会非常慢。
+
+使用 useInsertionEffect 可以为我们提供一种方案，解决上面第二个问题。（第一个问题目前不可解）：
+
+```js
+let isInserted = new Set();
+function useCSS(rule) {
+  useInsertionEffect(() => {
+    // As explained earlier, we don't recommend runtime injection of <style> tags.
+    // But if you have to do it, then it's important to do in useInsertionEffect.
+    if (!isInserted.has(rule)) {
+      isInserted.add(rule);
+      document.head.appendChild(getStyleForRule(rule));
+    }
+  });
+  return rule;
+}
+
+function Button() {
+  const className = useCSS('...');
+  return <div className={className} />;
+}
+```
+
+useInsertionEffect 同样不适用于服务端渲染，在书写时需要额外判断：
+
+```js
+let collectedRulesSet = new Set();
+
+function useCSS(rule) {
+  if (typeof window === 'undefined') {
+    collectedRulesSet.add(rule);
+  }
+  useInsertionEffect(() => {
+    // ...
+  });
+  return rule;
+}
+```
+
+> P.S. 他是如何解决第二条问题的：如果在渲染期间插入样式并且 React 正在处理非阻塞更新，则浏览器将在渲染组件树时每帧重新计算样式，这可能会非常慢。useInsertionEffect 比在 useLayoutEffect 或 useEffect 中插入样式要好，因为它确保当其他 Effects 在组件中运行时，\<style\> 标签已经被插入。否则，常规 Effects 中的布局计算将由于过时的样式而出错。
+
+----
+
+本期完了，债见！

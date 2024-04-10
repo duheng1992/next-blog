@@ -1,0 +1,386 @@
+# 新版React官方文档解读（四）- Hooks 之 useContext、useRef 和 useImperativeHandle
+---
+
+- 官网地址：[React](https://beta.reactjs.org/)
+
+## 1. useContext
+
+`useContext` 是一个传递组件上下文的钩子，提供读取和订阅功能。
+
+
+### 接收参数
+
+- context：是 [`createContext`](https://react.dev/reference/react/createContext) 创建出来的对象，他不保持信息，他是信息的载体。声明了可以从组件获取或者给组件提供信息。在 provider 中可以传递具体的值。
+
+### 返回值
+
+- contextValue：返回传递的只读context载体的值。是调用堆栈中组件上方最近的 SomeContext.Provider 出来的值。如果没有这样的Provider，则返回的值将是传递给该context的 createContext 的 defaultValue。其返回的值始终是最新的。如果上下文发生变化，React 会自动重新渲染读取context的组件。
+
+### 注意事项
+
+- useContext() 不受同一组件内`<Context.Provider>`的影响。useContext 要想拿到 provider提供的上下文，一定放在`<Context.Provider>`内部嵌套的组件中。
+- `<Context.Provider>`传递的context的值，如果值变化了（Object.is 判断法），其下各级组件就会触发重新渲染。可使用 memo 这个API来阻止重渲染。
+- 确保传递context的对象和读取context的对象是同一个context，最好提取为公共组件，使用时引用这个单例即可。
+
+> useContext() 总是在调用它的组件上级寻找最接近的Provider。它逐级向上搜索，并且排除掉 使用 useContext() 的同级组件中的Provider。
+
+### 各种参考案例
+
+#### 1. 传递主题颜色
+
+创建一个 context：
+
+```js
+const ThemeContext = createContext(null);
+```
+
+定义根组件：
+
+```js
+export default function MyApp() {
+  return (
+    <ThemeContext.Provider value="dark">
+      <Form />
+    </ThemeContext.Provider>
+  )
+}
+```
+他往下提供了一个 context 的初始值，叫 dark。在子组件中，使用 useContext 引入 ThemeContext，获取到这个context载体具体的值：
+
+```js
+function Panel({ title, children }) {
+  const theme = useContext(ThemeContext);
+  const className = 'panel-' + theme;
+  return (
+    <section className={className}>
+      <h1>{title}</h1>
+      {children}
+    </section>
+  )
+}
+```
+
+#### 2. 切换主题颜色
+
+在上面的基础上，我们添加更新主题颜色的功能。首先在根组件加入主题的state和改变的表单元素：
+
+```js
+// MyApp
+const [theme, setTheme] = useState('light');
+
+// ...
+<ThemeContext.Provider value={theme}>
+   // ...
+   <input
+      type="checkbox"
+      checked={theme === 'dark'}
+      onChange={(e) => {
+        setTheme(e.target.checked ? 'dark' : 'light')
+      }}
+    />
+// ...
+</ ThemeContext.Provider>
+```
+
+由于 context 是只读的，所以子组件不需要任何修改。根组件中点击 checkbox 就可以改变子组件中的 classname 了。
+
+
+#### 3. 多context嵌套的情况
+
+我们在根组件中定义两个 Provider：
+
+```js
+const ThemeContext = createContext(null);
+const CurrentUserContext = createContext(null);
+
+// ...
+
+<ThemeContext.Provider value={theme}>
+  <CurrentUserContext.Provider
+    value={{
+      currentUser,
+      setCurrentUser
+    }}
+  >
+    <WelcomePanel />
+// ...
+  </ CurrentUserContext.Provider>
+</ ThemeContext.Provider>
+```
+
+这样在子组件 WelcomePanel 中就可以获取：
+
+```js
+const {currentUser} = useContext(CurrentUserContex);
+const {theme} = useContext(ThemeContext);
+```
+可以看到，通过不同的 context 载体，可以获取到不同作用域的值。
+
+#### 4. 封装为高阶组件！
+
+上面的代码，context 都交给根组件维护，代码耦合性比较高，可以统一提出来一个新组件MyProviders：
+
+```js
+function MyProviders({ children, theme }) {
+  const [currentUser, setCurrentUser] = useState(null);
+  return (
+    <ThemeContext.Provider value={theme}>
+      <CurrentUserContext.Provider
+        value={{
+          currentUser,
+          setCurrentUser
+        }}
+      >
+        {children}
+      </CurrentUserContext.Provider>
+    </ThemeContext.Provider>
+  );
+}
+```
+
+这样再应用这个组件就会方便很多：
+
+```js
+<MyProviders theme={theme} setTheme={setTheme}>
+  // ...
+</MyProviders>
+```
+
+> P.S. 上面的例子有没有注意到，一个全局的 Context，加上 useReducer（useState） 就是一个小型的 redux，比如下面的[例子](https://codesandbox.io/s/3pzgg8?file=/AddTask.js&utm_medium=sandpack)：
+
+```js
+export function TasksProvider({ children }) {
+  const [tasks, dispatch] = useReducer(
+    tasksReducer,
+    initialTasks
+  );
+
+  return (
+    <TasksContext.Provider value={tasks}>
+      <TasksDispatchContext.Provider value={dispatch}>
+        {children}
+      </TasksDispatchContext.Provider>
+    </TasksContext.Provider>
+  );
+}
+```
+
+#### 5. 同一个context，局部修改状态
+
+比如在全局白色背景下，想要在局部的组件中使用其他主题色，可以这样定义：
+
+```js
+<ThemeContext.Provider value="light">
+  ...
+  <ThemeContext.Provider value="dark">
+    <Footer />
+  </ThemeContext.Provider>
+  ...
+</ThemeContext.Provider>
+```
+
+#### 6. 性能优化：在传值时避免不必要的重渲染
+
+考虑下面的例子：
+
+```js
+<AuthContext.Provider value={{ currentUser, login }}></ AuthContext.Provider>
+```
+
+传递的context是一个对象(currentUser)和一个函数(login)，在顶层组件重渲染时，他们可能会被重新创建，进而造成context重渲染。所以这里对注入的被字面量值也要做缓存：
+
+```js
+const login = useCallback((response) => {...})
+
+const contextValue = useMemo(() => ({  
+  currentUser,  
+  login  
+}), [currentUser, login]);
+
+// 使用
+<AuthContext.Provider value={contextValue}></ AuthContext.Provider>
+// ...
+```
+
+### Q&A
+
+#### 1. 我的组件为什么拿不到context提供的数据
+
+排查可能的原因：
+
+- 你在 `<SomeContext.Provider>` 同一级组件中使用了 useContext() 
+- 你没有用 `<SomeContext.Provider>` 包裹上级组件
+- 由于打包问题或者代码引入的问题，你提供context的地方和使用context的地方，引用的不是一个Context对象。比如你使用全局变量挂载了多个 context：`window.SomeContext1` and `window.SomeContext2`，你需要使用 `===` 提前判断是否相同。
+
+
+#### 2. 即使我设置了初始值，但是总是在获取值的时候拿到 `undefined`
+
+你在 Provider 时忘记传递 value 属性了。
+
+## 2. useRef
+
+用于设置一个可变的引用值，不随组件渲变化。与 `useState` 不同，`useRef` 返回的引用对象在组件重新渲染时保持不变，设置引用值也不会触发组件的重新渲染。
+
+> P.S. 由于 useRef 是一个引用，其内部的值是一个 current 对象来接受的，所以有些不确定是否有初始值的情况下，需要判断 ref.current 是否为空。
+
+### 参考案例
+
+###### 1. 点击计数器
+
+注意，这个计数值的变化，不会引起组件重渲染，在不需要渲染的场合适用。所以在jsx中这么写是不会起作用的 ❌：`<span>{ref.current}</span>`
+
+```js
+let ref = useRef(0);
+
+function handleClick() {
+  ref.current = ref.current + 1;
+  alert('You clicked ' + ref.current + ' times!');
+}
+```
+
+###### 2. 获取input的焦点
+
+useRef 可以挂载在原生元素上来获取其DOM对象本身。
+
+```js
+const inputRef = useRef(null);
+
+function handleClick() {
+  inputRef.current.focus();
+}
+
+<input ref={inputRef} />
+```
+
+###### 3. 控制元素滚动
+
+H5 有个API叫 `scrollIntoView`, 获取到 DOM 元素后可以控制将其滚动到特定的位置：
+
+```js
+const listRef = useRef(null);
+
+function scrollToIndex(index) {
+    const listNode = listRef.current;
+    // This line assumes a particular DOM structure:
+    const imgNode = listNode.querySelectorAll('li > img')[index];
+    imgNode.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'center'
+    });
+}
+
+// ...
+<ul ref={listRef}>
+  <li onClick={scrollToIndex(0)}><img ... /></li>
+  <li onClick={scrollToIndex(1)}><img ... /></li>
+  <li onClick={scrollToIndex(2)}><img ... /></li>
+</ul>
+```
+
+###### 4. 控制 video 播放
+
+```js
+// 控制方法代码片段
+if (!isPlaying) {
+  ref.current.play();
+} else {
+  ref.current.pause();
+}
+
+...
+// dom 定义
+<video
+    width="250"
+    ref={ref}
+    onPlay={() => setIsPlaying(true)}
+    onPause={() => setIsPlaying(false)}
+  >
+    <source
+      src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+      type="video/mp4"
+    />
+</video>
+```
+
+###### 5. 自定义组件设置 ref 属性
+
+因为默认函数式组件不会往外暴露 refs 属性，所以我们首先要用 `forwardRef` 将我们的自定义组件包裹后导出：
+
+```js
+// 将 ref 给到 input
+const MyInput = forwardRef((props, ref) => {
+  return <input {...props} ref={ref} />;
+});
+```
+接着在父组件中使用包裹好的组件：
+
+```js
+<MyInput ref={inputRef} />
+```
+上面的例子中，想要拿到子组件内部的 input 元素实例，只需：
+
+```js
+inputRef.current.focus();
+```
+
+## 3. useImperativeHandle
+
+这个 hook 需要结合 ref 使用，用于控制在自定义组件中向外暴露哪些组件属性或方法。
+
+上面的 useRef 只能控制自定义组件本身的 DOM，如果想要在父组件调用子组件本身的成员方法，就需要结合 `useImperativeHandle` 来使用了。
+
+### 接收参数
+
+- ref：组件forwardRef包裹后暴露出来的ref
+- 控制函数：其返回值是个对象，列举了暴露的方法的变量
+
+### 参考案例
+
+###### 1. 封装一下上面聚焦input的功能
+
+我们将上面在父组件中使用 `inputRef.current.focus();` 的过程，在子组件中暴露成一个方法：
+
+```js
+// MyInput
+useImperativeHandle(ref, () => {
+    return {
+      focus() {
+        inputRef.current.focus();
+      },
+    }
+})
+```
+
+在父组件中使用：
+
+```jsx
+ref.current.focus();
+
+...
+<MyInput label="Enter your name:" ref={ref} />
+```
+
+###### 2. 暴露子组件的方法给父组件
+
+子组件：
+
+```js
+useImperativeHandle(ref, () => ({
+  getData: () => getData(filter),
+  refreshTable: () => refreshTable()
+}));
+```
+
+父组件：
+
+```js
+tableRef.current && tableRef.current.refreshTable();
+
+...
+<CommonTable loading={loading} ref={tableRef}>...</CommonTable>
+```
+
+上面的代码，实现了在自定义表格组件时，通过父组件来调用表格组件内部方法重新获取数据和原地刷新的功能。
+
+> P.S. 不要过度使用 refs 功能。仅仅需要在一些聚焦、滚动、动画和选中等等不能通过props传递的命令式的行为上使用即可。上面的父组件调用子组件的例子，完全可以用 useEffect + props 或者 Events 解决。
