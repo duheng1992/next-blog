@@ -1,0 +1,220 @@
+# 新版React官方文档解读（九）- react API 之 memo 、forwardRef
+---
+
+官网地址：[React](https://react.dev/)
+
+## 1. memo
+
+组件级别的缓存函数，使用它包裹的组件组成的新组件可以在 props 没有变化时阻止重渲染，从而提高性能。类似于Vue的 keepAlive。
+
+### 接受参数
+
+- 接受一个 react 组件。`memo` 不会改变这个组件本身的属性，任何有效的 React 组件，包括函数和 `forwardRef` 组件，都可以被接受。
+- 第二个参数是可选参数：组件以前的 props 和它的新 props。
+
+### 返回值
+
+`memo` 返回一个新的 React 组件。它的行为与提供给的组件相同，只是 React 不会总是在其父级被重新渲染时执行重新渲染，除非它的 props 发生了变化（Object.is 比较）。
+
+### 注意事项
+
+**memo 不是万能的：**
+
+1.  当一个组件在包装其他组件时，让它接受 JSX 作为子组件。这样，当父组件更新自己的状态时，需要让 React 知道它的子组件是否不需要重新渲染时，你才要考虑使用 memo。
+2. 更推荐使用组件级别的 state，而不要把所有状态都维护在顶级组件，再大量使用 memo 来挽回性能。
+3. 保持组件的纯净性。如果你的组件多次渲染返回的不同的状态，你应该许修复你组件的 bug，而不是加一个 memo。
+4. 避免不必要的状态更新，这些更新有时候会造成子组件反复渲染。
+5. 删除 useEffect 中不必要的依赖项，他有时候也会造成过多的渲染。
+6. props 如果是函数，父组件应将该函数缓存（useCallback等），否则父组件渲染，该函数引用会变化，导致子组件的 memo 失效。
+
+### 使用案例
+
+1. 部分属性变化更新组件
+
+React 组件都是纯函数，或者说应该是纯函数，所以可以认为 props 没有变化的时候，其输出也不应该变化。这就是 memo 能够缓存而不造成错乱的理论基础。 
+
+下面的例子，只要入参 name 没有变化，Greeting 组件内部是不会重新渲染的。
+
+```js
+const Greeting = memo(function Greeting({ name }) {
+  return <h1>Hello, {name}!</h1>;
+});
+
+export default Greeting;
+
+// 其他组件引用
+<Greeting name={name} />
+```
+
+2. 与 context 结合的缓存
+
+下面的例子，子组件 Greeting 是一个使用了mem包裹的组件，但是当父组件属性 theme 变化时，还是会引起子组件重渲染。 
+
+```js
+export default function MyApp() {
+  const [theme, setTheme] = useState('dark');
+
+  function handleClick() {
+    setTheme(theme === 'dark' ? 'light' : 'dark'); 
+  }
+
+  return (
+    <ThemeContext.Provider value={theme}>
+      <button onClick={handleClick}>
+        Switch theme
+      </button>
+      <Greeting name="Taylor" />
+    </ThemeContext.Provider>
+  );
+}
+```
+若要使组件仅在某些 context 属性改变时重新渲染，请将组件一分为二。从外部组件的 context 中读取您需要的内容，并将其作为 props 传递给记忆的子组件。
+
+3. 组件规范：尽量减少组件成员的反复变化
+
+React 的重渲染判断都是使用 Object.is 来判断的，但是 `Object.is({}, {})` 可是会返回 false 的。所以组件的人成员方法应该做必要的缓存，让组件在重渲染时这个方法还能保持过去的内存引用。
+
+```js
+function Page() {
+  const [name, setName] = useState('Taylor');
+  const [age, setAge] = useState(42);
+
+  const person = useMemo(
+    () => ({ name, age }),
+    [name, age]
+  );
+
+  return <Profile person={person} />;
+}
+
+const Profile = memo(function Profile({ person }) {
+  // ...
+});
+```
+上面的例子，person 被缓存了，当Page组件重渲染时，不会因为 person 的内存引用变化了而导致 Profile 不必要的渲染。
+
+4. 使用第二个参数来比对 props
+
+我们写个自定义的函数来比对 props，从而决定是否要重渲染。此函数作为第二个参数传递给子组件。仅当返回 true 时不做重渲染，否则就进行重渲染。
+
+```js
+const Chart = memo(function Chart({ dataPoints }) {
+  // ...
+}, arePropsEqual);
+
+function arePropsEqual(oldProps, newProps) {
+  return (
+    oldProps.dataPoints.length === newProps.dataPoints.length &&
+    oldProps.dataPoints.every((oldPoint, index) => {
+      const newPoint = newProps.dataPoints[index];
+      return oldPoint.x === newPoint.x && oldPoint.y === newPoint.y;
+    })
+  );
+}
+```
+当用到自定义函数时，一定要测试一下是否性能比默认的比对方式更好。这里边坑比较多，尽量避免深度检查，**深度相等性检查可能会使组件变得非常慢**。
+
+## 2. forwardRef
+
+forwardRef 使组件向父组件暴露出自己的 DOM 结构。
+
+### 接收参数
+
+-  函数式组件。React 会在父组件中带着 props 和 ref 调用这个函数。
+
+### 返回值
+
+- `forwardRef` 返回原函数式组件，不过会在 props 中带入 ref 信息。
+
+### 使用案例
+
+1. 父组件获取子组件 DOM 实例
+
+```js
+// 子组件
+const MyInput = forwardRef(function MyInput(props, ref) {
+  const { label, ...otherProps } = props;
+  return (
+    <label>
+      {label}
+      <input {...otherProps} ref={ref} />
+    </label>
+  );
+});
+
+// 父组件
+function Form() {
+  const ref = useRef(null);
+
+  function handleClick() {
+    ref.current.focus();
+  }
+
+  return (
+    <form>
+      <MyInput label="Enter your name:" ref={ref} />
+      <button type="button" onClick={handleClick}>
+        Edit
+      </button>
+    </form>
+  );
+}
+```
+上面的例子中，子组件将 ref 打在 input 标签中，并暴露出去；父组件中，同样使用 ref 属性接受。`useRef` 的使用，可以参看之前的文章：[useRef](https://juejin.cn/post/7249607108044357690#heading-14)
+
+> 使用 forwardRef 就相当于 ref 透传。父组件中的 useRef 直接打在子组件中的 input
+
+2. 播放器控制
+
+上面是控制文本框聚焦，下面是另外的 H5 API 的调用例子，父组件中控制播放器：
+
+```js
+// 子组件
+<video width={width} ref={ref}>
+  <source
+    src={src}
+    type={type}
+  />
+</video>
+
+// 父组件
+<button onClick={() => ref.current.play()}>
+    Play
+</button>
+```
+
+3. 暴露子组件成员方法
+
+useImperativeHandle 的使用可以参见 [useImperativeHandle](https://juejin.cn/post/7249607108044357690#heading-21)
+
+```js
+const MyInput = forwardRef(function MyInput(props, ref) {
+  const inputRef = useRef(null);
+
+  useImperativeHandle(ref, () => {
+    return {
+      focus() {
+        inputRef.current.focus();
+      },
+      scrollIntoView() {
+        inputRef.current.scrollIntoView();
+      },
+      handleClick() {
+        handleClick();
+      }
+    };
+  }, []);
+  
+  function handleClick() {
+    // 自定义的成员方法
+    alert('click');
+  }
+
+  return <input {...props} ref={inputRef} />;
+});
+```
+这样在父组件中就可以这样调用了：`ref.current.scrollIntoView();`
+
+
+----
+完 ！！

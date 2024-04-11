@@ -1,0 +1,370 @@
+# 新版React官方文档解读（七）- react 组件
+---
+
+官网地址：[React](https://react.dev/)
+
+
+## 1. \<Profiler>
+  
+
+`<Profiler>` 帮助开发者程式化地计算渲染性能。
+
+### 接受 props
+
+-   `id`: 想要测量性能的组件的唯一标识符
+-   `onRender`: 组件树更新时调用，传递的擦净书中包含测试组件信息和性能信息。参数信息如下：
+
+|参数|描述|
+|-|-|
+|id|该渲染元素的唯一标识，就是你自己在Profiler中打的id|
+|phase|枚举： `mount`, `update` or `nested-update`。标识渲染组件渲染的类型|
+|actualDuration|渲染包裹组件及其子组件所花费的毫秒数。这可以测试子树利用记忆函数（例如 memo 和 useMemo）的使用情况。理想情况下，此值在初始挂载后应显著降低，因为许多后代节点只需要在其特定依赖发生变化时才需要重新渲染。|
+|baseDuration|估计在没有任何优化的情况下重新呈现整个子树所需的时间的毫秒数。它是通过汇总树中每个组件的最新渲染持续时间来计算的。此值估计渲染的最坏情况成本（例如，初始挂载或没有记忆函数的树）。将实际持续时间与它进行比较，看看记忆函数是否有效。|
+|startTime|react 开始渲染时的时间戳|
+|endTime|React 当前更新组件被 commit （理解为 fiber 调度统一更新真实 dom）时的时间戳。此值在 commit 中的所有 profiler 之间共享，以便在需要时对它们进行分组。|
+
+### 注意事项
+
+性能分析会增加一些额外的开销，因此默认情况下在生产版本中会禁用它。
+
+### 使用案例
+
+1. 计算单个组件渲染性能
+
+```js
+<App>
+  <Profiler id="Sidebar" onRender={onRender}>
+    <Sidebar />
+  </Profiler>
+  <PageContent />
+</App>
+```
+此时，你还可以在 [React Developer Tools](https://react.dev/learn/react-developer-tools) 中查看 Profiler 页签，里边有具体信息：
+
+
+![image.png](/images/2023-8-24/2023-8-24-1.png)
+
+2. 多个组件性能测试
+
+```js
+<App>
+  <Profiler id="Sidebar" onRender={onRender}>
+    <Sidebar />
+  </Profiler>
+  <Profiler id="Content" onRender={onRender}>
+    <Content>
+      <Profiler id="Editor" onRender={onRender}>
+        <Editor />
+      </Profiler>
+      <Preview />
+    </Content>
+  </Profiler>
+</App>
+```
+可以看到，使用同一个函数就行。
+
+> Profiler 会影响性能，不要在生产环境使用
+
+
+## 2. \<Suspense>
+
+`<Suspense>` 包裹一个需要懒加载的组件。
+
+### 接收 props
+
+- `children`: 懒加载的组件。在渲染过程中会用 fallback 函数填充空白区域.
+- `fallback`: 懒加载组件渲染过程中的替代品（placeholder），是一个函数，其返回值可以接受任何有效的 React Node，比如 loading 图标或者骨架屏等。当 组件延迟加载过程中，Suspense 会自动切换到 fallback，加载结束后自动换回到 children。多层 Suspense 包裹的情况时，会回落到最近的一层 fallback。
+
+### 注意事项
+
+- React 不会为在首次挂载之前被 Suspense 的渲染保留任何状态。当组件加载完毕后，React 将从头开始重试渲染挂起的渲染树。
+- 如果 Suspense 渲染树的内容已经显示后再次挂起，则“fallback”将再次显示，除非导致它的更新是由startTransition 引起的。
+- 如果 React 需要隐藏已经可见的内容，由于它再次挂起了，所以会清理渲染树中的布局效果。当内容准备好再次显示时，React 将再次触发布局重绘。这样，在组件隐藏时就不会再做布局重绘的计算了。
+- React 在 Suspense 中集成了一些底层优化，如*流服务器渲染*和*选择性水合*（Hydration）。在服务端渲染时可以用到。
+
+> Suspense **不在** Effect 副作用 或者 event handler 中监测
+
+### 使用案例
+
+1. 使用 fallback 的 loading 效果
+
+```js
+const [show, setShow] = useState(false);
+
+<button onClick={() => setShow(true)}></button>
+...
+
+if (show) {
+    return (
+        <Suspense fallback={<Loading />}>
+          <Albums artistId={artist.id} />
+        </Suspense>
+    )
+}
+
+...
+function Loading() {
+  return <h2>🌀 Loading...</h2>;
+}
+```
+
+2. 一次性懒加载多个组件
+
+```js
+<Suspense fallback={<Loading />}>
+    <Biography artistId={artist.id} />
+    <Panel>
+      <Albums artistId={artist.id} />
+    </Panel>
+</Suspense>
+```
+
+被 Suspense 包裹的范围视为一个统一的更新单元。两个组件只有一个处于加载中时，整个显示都会变为指示器 fallback。在所有组件准备完毕后，会一次性渲染出来。
+
+换种思考方案，上面的代码是有问题的，多个异步组件不建议分开写，应该按照业务区分，统一使用 Details 组件封装：
+
+```js
+<Suspense fallback={<Loading />}>
+  <Details artistId={artist.id} />
+</Suspense>
+```
+
+3. 使用嵌套 Suspense
+
+```js
+<Suspense fallback={<BigSpinner />}>
+    <Biography artistId={artist.id} />
+    <Suspense fallback={<AlbumsGlimmer />}>
+      <Panel>
+        <Albums artistId={artist.id} />
+      </Panel>
+    </Suspense>
+</Suspense>
+```
+
+上面的 Biography 组件的加载不会受到 Albums 加载的影响。sequence 的运作流程：
+
+- 当 `Biography` 未加载时, 统一显示 `BigSpinner` 方案。
+- 一旦 `Biography` 加载结束, `BigSpinner` 就会被替换掉。
+- 此时 `Albums` 开始加载 `AlbumsGlimmer` 显示在对应区域。
+- 一旦 `Albums` 加载结束，则结束渲染。
+
+Suspense 边界设置就类似于堆栈的 pop 操作，是有层级关系的，最上层的最先加载。理论上 Suspense 可以用在任一个组件的任何一个地方，但是不建议在各个业务组件广泛的使用，具体的用户体验设计中的渲染顺序应该细粒度到具体的组件控制函数（usetate/useEffect 等），而不是使用懒加载技术。
+
+4. 输入框输入时，前端模拟异步查询搜索结果
+
+如下：
+
+```js
+const [query, setQuery] = useState('');
+...
+<>
+  <label>
+    Search albums:
+    <input value={query} onChange={e => setQuery(e.target.value)} />
+  </label>
+  <Suspense fallback={<h2>Loading...</h2>}>
+    <SearchResults query={query} />
+  </Suspense>
+</>
+```
+上面的例子，setQuery 触发了组件的重渲染，SearchResults 就会出现加载界面。这可以用来在前端搜索的组件中模拟加载动画。
+
+当然，你还可以使用 useDeferredValue 来s使UI渲染更流畅：
+
+```js
+const deferredQuery = useDeferredValue(query);
+
+...
+// 一个半透明的加载动画
+<div style={{
+  opacity: query !== deferredQuery ? 0.5 : 1 
+}}>
+    <SearchResults query={deferredQuery} />
+</div>
+```
+
+5. 阻止已渲染元素被隐藏 [例子](https://codesandbox.io/s/s5tn9m?file=%2FApp.js&utm_medium=sandpack)
+
+我们可以这样写来懒加载一个路由 ：
+
+```js
+export default function App() {
+  return (
+    <Suspense fallback={<BigSpinner />}>
+      <Router />
+    </Suspense>
+  );
+}
+
+function Router() {
+  const [page, setPage] = useState('/');
+  const [isPending, startTransition] = useTransition();
+
+  function navigate(url) {
+    startTransition(() => {
+      setPage(url);
+    });
+  }
+
+  let content;
+  
+  // 处理模拟路由逻辑赋值并content的操作省略
+  
+  return (
+    <Layout isPending={isPending}>
+      {content}
+    </Layout>
+  );
+}
+``` 
+
+上面的例子，你可能会认为组件加载时， Layout 组件也会消失并替换为 BigSpinner。 但是，可以看到，被包裹的组件使用了 `startTransition`，这告诉 React， Router 组件的渲染不是紧急的，可以缓一缓，此时，在下一次渲染结束之前，界面会保留上一次渲染的图形。所以即使 Suspense 包裹了最外层，但 Layout 组件并不会重渲染，直到下一次渲染结束后才变化。
+
+6. 在 navigate 时重置 Suspense
+
+上面的例子我们知道，在 transition 渲染阶段，UI 会避免隐藏掉已经渲染出来的数据，但是在路由导航时，恰恰需要告诉 React 给我立即销毁原来的数据并展示你准备好的 fallback。你可以这样做：
+
+```jsx
+<ProfilePage key={queryParams.id} />
+```
+
+我们举一个使用场景例子，一个用户的 ProfilePage 与另一个用户的 ProfilePage 内容不同。通过指定一个键，你可以确保 React 将不同用户的 ProfilePage 视为不同的组件，并在导航过程中重置 Suspense 边界。
+
+> 上面是官网的解释，用人话说，就是 key 变化了，transition 不会缓存原来渲染的 UI 了，而是随着路由切换进入懒加载的 fallback
+
+7. 显示服务器错误
+
+如果你使用了服务端渲染，并且一个组件在服务端报了错后，React 不会终止服务端的渲染，而是往上层找最近的\<Suspense>，使用其 fallback 进行替换错误区域；另一方面，在客户端出现错误后，客户端会直接抛出错误，如果客户端并未出现错误，则用户无法感知服务端出错了。
+
+可以在服务端使用如下代码：
+
+```js
+<Suspense fallback={<Loading />}>
+  <Chat />
+</Suspense>
+
+function Chat() {
+  if (typeof window === 'undefined') {
+    throw Error('Chat should only render on the client.');
+  }
+  // ...
+}
+```
+此时，在服务端则会抛出错误，在客户端则正常显示 Chat。
+
+8. 做全局路由懒加载
+
+可以结合 lazy 使用，做路由的懒加载来提高页面性能：
+
+```js
+const container = document.getElementById('root');
+const root = createRoot(container); // createRoot(container!) if you use TypeScript
+
+root.render(
+  <BrowserRouter basename={config.basename}>
+    <CustomRoutes />
+  </BrowserRouter>
+);
+```
+
+在 `<CustomRoutes />` 中：
+
+```js
+const Home = lazy(() => import('./Home'))
+const About = lazy(() => import('./About'))
+
+<Routes>
+  <Suspense fallback={<Loading type="home" />}>
+    <Route path="/" element={<Home />} />
+  </Suspense>
+  <Suspense fallback={<Loading type="about" />}>
+    <Route path="about" element={<About />} /> 
+  </Suspense>
+</Routes>
+```
+上面的例子，在 location pathname 切换时，会加载不同的 fallback 加载动画，加载结束后，显示对应的渲染元素。
+
+----
+
+此外， react 中还有两个组件：`<Fragment>`,`<StrictMode>`，因为功能比较单一，茄使用较为简单，这里做简单描述。
+
+## 3. \<Fragment>
+
+由于 react 渲染必须有一个根组件，但是又不想破坏原来的 dom 结构，react 实现了这么个虚拟的容器。使用方式如下：
+
+```js
+function Post() {
+  return (
+    <>
+      <PostTitle />
+      <PostBody />
+    </>
+  );
+}
+```
+在 fiber 实际渲染真实 dom 时，Fragment 会被清除掉，不会占用 dom 树空间。当需要再循环列表中使用时，往往需要添加元素的 key 属性，这就不能使用匿名标签，而要使用全名：
+
+```js
+function Blog() {
+  return posts.map(post =>
+    <Fragment key={post.id}>
+      <PostTitle title={post.title} />
+      <PostBody body={post.body} />
+    </Fragment>
+  );
+}
+```
+
+> Fragment 没有任何属性，添加样式也是不会生效的。一级 Fragment 的渲染不会触发组价重渲染，但是多级 Fragment 则会导致重渲染，例如从 `<><><Child /></></>` 到 `<Child />`，子组件 state 会重置。
+
+## 4. \<StrictMode>
+
+帮助在开发模式发现更多的潜在 bug。使用方式：
+
+```js
+const root = createRoot(document.getElementById('root'));
+root.render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);
+```
+
+严格模式下，开发环境会有如下变化：
+
+-   组件都会被渲染两次，以发现一些非纯函数。例如：
+
+```js
+// 错误写法
+export default function StoryTray({ stories }) {
+  const items = stories;
+  items.push({ id: 'create', label: 'Create Story' });
+  return (
+    <ul>
+      {items.map(story => (
+        <li key={story.id}>
+          {story.label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+-   副作用函数会被执行两遍，以发现没有被清理（clean up）的副作用订阅。
+-   会检查是否用了一些不合适的 API，比如 findDOMNode
+
+当然，严格模式也可以部分加在局部组件上：
+
+```js
+<StrictMode>
+    <main>
+      <Sidebar />
+      <Content />
+    </main>
+</StrictMode>
+```
+----
+
+完！！
+

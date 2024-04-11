@@ -1,0 +1,178 @@
+# 新版React官方文档解读（八）- react API 之 startTransition、 createContext 和 lazy
+---
+
+官网地址：[React](https://react.dev/)
+
+## 1. startTransition
+
+我们在讲 [useTransition](https://juejin.cn/post/7268530145202700303) 的一节我们讲过，通过 hook 可以获取到这个 API，推荐结合 hook 一起使用。
+
+当然也可以直接引入：
+
+```js
+import { startTransition } from 'react';
+
+function TabContainer() {
+  const [tab, setTab] = useState('about');
+
+  function selectTab(nextTab) {
+    startTransition(() => {
+      setTab(nextTab);
+    });
+  }
+  // ...
+}
+```
+他的作用是防止 UI 阻塞，做到前端异步非阻塞渲染。具体使用方式见 useTransition。
+
+### 注意事项
+
+-  `startTransition` 不会追踪渲染 pending 的状态. 想要获取渲染实时状态，请使用 [`useTransition`](https://juejin.cn/post/7268530145202700303) .
+-  使用它包裹 state 的 `set` 函数来实现跟该 state 相关的渲染过渡。 如果想要响应 props 变化来实现渲染过渡，请使用 [`useDeferredValue`](https://juejin.cn/post/7268530145202700303).
+-  `startTransition` 内部函数必须是同步的.
+-  标记为 transition 的 state 更新会被其他 state 的更新打断渲染，在其他渲染调度结束后再次想重新执行该渲染.
+-  不能用于控制文本输入组件.
+-  如果同时有多个在运行的过渡，React 会把他们合并一起处理。这个方案似乎是个性能缺陷，随后的版本可能会修复它。
+
+## 2. createContext
+
+顾名思义，就是创建一个 context 对象，一般结合 hook 一起使用，可以参考我 [useContext](https://juejin.cn/post/7249607108044357690) 的文章。
+
+官网的部分描述与 useContext 有重复，这里及直接讲使用案例。
+
+### 使用案例
+
+1. 配置全局变量
+
+```js
+// 放在全局，创建时的默认值一般可以不用传递，在 provider 时会配置初始值的
+const ThemeContext = createContext();  
+const AuthContext = createContext();
+```
+我们定义主题信息和认证信息，用它包裹根组件：
+
+```jsx
+const [theme, setTheme] = useState('dark');
+const [currentUser, setCurrentUser] = useState({ id: 1 });
+
+<ThemeContext.Provider value={theme}>
+  <AuthContext.Provider value={currentUser}>
+    <Page />
+  </AuthContext.Provider>
+</ThemeContext.Provider>
+```
+
+在包裹的内部组件中，无论多深的层级，都可以这样使用来获取 value 值：
+
+```js
+const theme = useContext(ThemeContext); // dark
+```
+
+> 确保 ThemeContext 是一开始定义的那个单例
+
+他踢动了一个单向数据流，可以从顶向下传递动态响应式数据。如果在入口处维护一些 state，暴露出事件来给各个业务模块调用，就可以实现一个类似 redux 的功能。
+
+2. 局部引用
+
+```js
+// Button.js  
+import { ThemeContext } from './Contexts.js';
+```
+
+比如上面的例子，我们全局配置了主题为 dark，但是有一个 Button 组件，其需要特殊处理，就可以这样写，在 Button 内部再次 Provider 自己想要的主题即可，相同的 context 遵循就近原则。
+
+## 3. lazy
+
+延迟加载组件的工具，往往与 [\<Suspense>](https://juejin.cn/post/7270648629378252840#heading-4) 组件一起使用。
+
+
+简单使用：
+
+```js
+const MarkdownPreview = lazy(() => import('./MarkdownPreview.js'));
+```
+
+### 接受参数
+
+接受一个函数，返回 Promise 或者 其他类 *thenable* 的异步函数。React 默认不会去加载 lazy 包裹的组件，除非明确的在界面上需要渲染他。当开始加载时，React 会等待其解析，解析过程中由 Suspense 提供过渡响应，解析完毕后即可渲染。返回的 Promise 和 Promise 中 resolve 的值都会被缓存（比如打包的js文件），再次渲染就不会重复请求资源。但是这个组件本身的重渲染还是会被触发。如果该 Promise reject 请求，异常会冒泡至最近的处理函数（Error Boundary）抛出。
+
+### 返回值
+
+返回一个可以渲染在 fiber 树中的组件。
+
+### 注意事项
+
+- lazy 要在 js 模块顶层使用，不要在组件内部使用
+- 
+
+### 使用案例
+
+1. 动态引入加载
+
+```js
+const MarkdownPreview = lazy(() => import('./MarkdownPreview.js'));
+
+<Suspense fallback={<Loading />}>
+  <h2>Preview</h2>
+  <MarkdownPreview />
+</Suspense>
+```
+效果：
+
+加载中：
+
+
+![image.png](/images/2023-9-6/2023-9-6-1.png)
+
+加载后：
+
+![image.png](/images/2023-9-6/2023-9-6-2.png)
+
+加载一次后便不会再出现 loading
+
+2. 路由懒加载
+
+介绍作者在工作中用过的一个使用 js 数组配置路由懒加载的案例：
+
+```jsx
+// route.js
+const Loadable = (Component) => (props) => (
+    <Suspense fallback={<Loader />}>
+      <Component {...props} />
+    </Suspense>
+);
+
+const Home = Loadable(lazy(() => import('views/pages')));
+const User = Loadable(lazy(() => import('views/pages/common/user')));
+
+const routes = [
+    {
+      path: 'home',
+      children: [
+        {
+          path: '/',
+          element: <Home />
+        }
+      ]
+    },
+    {
+      path: 'setting',
+      children: [
+        {
+          path: 'user-setting',
+          element: <User />
+        }
+      ]
+    }
+]
+
+useRoutes(routes);
+
+// 使用
+import Routes from 'route.js';
+
+<Routes />
+```
+---
+
+完 ！

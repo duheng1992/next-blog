@@ -1,0 +1,200 @@
+# 新版React官方文档解读（五）- Hooks 之 useId 和 useSyncExternalStore
+---
+
+官网地址：[React](https://react.dev/)
+
+## 1. useId
+
+`useId` 是一个生成唯一Id的hook。
+
+其不接收参数，返回值就是生成的Id，这个Id可以保证在当前的组件内部不重复，不管组件反复渲染多少次。
+
+> 注意，这可是一个 hook，不能在 for 循环中使用，这就强制你养成好习惯：面向组件编程。
+
+#### 使用案例
+
+一个密码框组件：
+
+```jsx
+import { useId } from 'react';
+
+function PasswordField() {
+  const passwordHintId = useId();
+  return (
+    <>
+      <label>
+        Password:
+        <input
+          type="password"
+          aria-describedby={passwordHintId}
+        />
+      </label>
+      <p id={passwordHintId}>
+        The password should contain at least 18 characters
+      </p>
+    </>
+  );
+}
+```
+
+上面例子中，aria-describedby 是 [HTML accessibility](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA)属性，用于和其他元素关联以方便阅读器读取。
+ 
+> 笔者认为 React 中 useId 很鸡肋，不能用于循环渲染列表，大多数场景都不太用的上，至少目前是这样。
+
+## 2. useSyncExternalStore
+
+用于订阅第三方 store 的hook。这个 hook 可以让我们不使用 redux/useReducer/useState 来获得存储状态的能力。
+
+使用方式：
+
+```js
+const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+```
+
+其中：
+
+- `subscribe`：订阅的回调参数，可用于存储 store。其必须返回一个 取消订阅的清理函数。
+- `getSnapshot`：用于返回组件所需的存储区中的数据快照的函数。当存储未更改时，对 getSnapshot 的重复调用必须返回相同的值。如果存储更改并且返回值不同（Object.is ），即不是纯函数，React 将重新渲染组件
+- `getServerSnapshot`：可选参数。返回存储中数据的初始快照的函数。仅在 服务端渲染期间或者客户端 hydration 时使用。如果省略此参数，SSR应用中，服务器上呈现组件将引发错误。
+- `snapshot`: 当前 store 的快照 (是 store 的深拷贝)
+
+### 使用案例
+
+- 1、自定义 store 实现 todoList：
+
+```js
+import { useSyncExternalStore } from 'react';
+import { todosStore } from './todoStore.js';
+
+export default function TodosApp() {
+  const todos = useSyncExternalStore(todosStore.subscribe, todosStore.getSnapshot);
+  return (
+    <>
+      <button onClick={() => todosStore.addTodo()}>Add todo</button>
+      <hr />
+      <ul>
+        {todos.map(todo => (
+          <li key={todo.id}>{todo.text}</li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+// todoStore.js
+let nextId = 0;
+let todos = [{ id: nextId++, text: 'Todo #1' }];
+let listeners = [];
+
+export const todosStore = {
+  addTodo() {
+    todos = [...todos, { id: nextId++, text: 'Todo #' + nextId }]
+    emitChange();
+  },
+  subscribe(listener) {
+    listeners = [...listeners, listener];
+    return () => {
+      listeners = listeners.filter(l => l !== listener);
+    };
+  },
+  getSnapshot() {
+    return todos;
+  }
+};
+
+function emitChange() {
+  for (let listener of listeners) {
+    listener();
+  }
+}
+```
+
+上面的例子，自定义的 subscribe 读取了所有监听器函数，使用数组来维护。清理函数中，过滤掉了当前的监听器； getSnapshot 则返回了 store。
+
+> 一般上，`useSyncExternalStore` API 通常用于集成 non-React 代码.
+
+- 2,、传递一个监听事件，判断当前网络连接状态：
+
+```js
+import { useSyncExternalStore } from 'react';
+
+export default function ChatIndicator() {
+  const isOnline = useSyncExternalStore(subscribe, getSnapshot);
+  return <h1>{isOnline ? '✅ Online' : '❌ Disconnected'}</h1>;
+}
+
+function getSnapshot() {
+  return navigator.onLine;
+}
+
+function subscribe(callback) {
+  window.addEventListener('online', callback);
+  window.addEventListener('offline', callback);
+  return () => {
+    window.removeEventListener('online', callback);
+    window.removeEventListener('offline', callback);
+  };
+}
+```
+上面的订阅事件中，监听了原生 online 事件，将监听器当做回调 callback，这样，当 navigator.onLine 变化时，isOnline 就会改变。
+
+- 3、与自定义 hook 组合
+
+上面的例子，我们将这个封装在一个 hook 里：
+
+```js
+export function useOnlineStatus() {
+  const isOnline = useSyncExternalStore(subscribe, getSnapshot);
+  return isOnline;
+}
+
+...
+```
+现在就可以在其他组件中使用了：
+
+```js
+function StatusBar() {
+  const isOnline = useOnlineStatus();
+  return <h1>{isOnline ? '✅ Online' : '❌ Disconnected'}</h1>;
+}
+```
+
+- 4、服务端渲染时配置
+
+如果使用了服务端渲染，这就意味着你不能再使用浏览器自带的API，上面判断是否在线的例子就不成立了。我们可以如下写：
+
+```js
+import { useSyncExternalStore } from 'react';
+
+export function useOnlineStatus() {
+  const isOnline = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return isOnline;
+}
+
+function getSnapshot() {
+  return navigator.onLine;
+}
+
+function getServerSnapshot() {
+  return true; // Always show "Online" for server-generated HTML
+}
+
+function subscribe(callback) {
+  // ...
+}
+```
+上面的例子中，通过第三个参数 getServerSnapshot 配置SSR，return 值就是渲染时获取到的 store 的值。
+
+getServerSnapshot 函数类似于 getSnapshot，但它仅在两种情况下执行：
+
+1. 生成 HTML 时，在服务器上运行。
+2. 它在 [hydration](https://react.dev/reference/react-dom/client/hydrateRoot) 期间在客户端上运行，即当 React 获取服务器 HTML 并使其交互时。
+
+他提供一个在页面可交互之前的初始快照值。如果服务器呈现没有有意义的初始值，则会忽略此参数并强制在客户端上渲染。
+
+> 使用时需确保 getServerSnapshot 在初始客户端渲染上返回的数据与在服务器上返回的数据完全相同。
+
+> 例如，如果 getServerSnapshot 在服务器上返回了一些预填充的存储内容，则需要将此内容传输到客户端。一种方法是在服务器渲染期间打一个\<script>标签，用于设置全局变量，类似 `window.MY_STORE_DATA`，然后在 getServerSnapshot 中从客户端上全局读取。
+
+----
+完！

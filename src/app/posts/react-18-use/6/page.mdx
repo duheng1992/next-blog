@@ -1,0 +1,427 @@
+# 新版React官方文档解读（六）- Hooks 之 useTransition、useDeferredValue
+---
+
+官网地址：[React](https://react.dev/)
+
+
+## 1. useTransition
+
+useTransition 可以让你不阻塞 UI 渲染来更新 state 的值。可以理解为实现更流畅的页面过渡。使用方式为：
+
+```js
+// 一个切换 tab 页签的例子
+function TabContainer() {
+  const [isPending, startTransition] = useTransition();
+  const [tab, setTab] = useState('about');
+
+  function selectTab(nextTab) {
+    startTransition(() => {
+      setTab(nextTab);
+    });
+  }
+  // ...
+}
+```
+
+其中：
+
+- isPending：一个布尔值，表示当前是否阻塞
+- startTransition：开启过渡，并可修改 state
+
+### 注意事项
+
+- 作为一个 hook，只能在函数式组件或者自定义 hook 里被调用，如果想要单独作为 API 调用，可使用 [`startTransition`](https://react.dev/reference/react/startTransition)
+- 仅仅可以在 setState 中触发，若想要在 props 变化后触发，需使用 [`useDeferredValue`](https://react.dev/reference/react/useDeferredValue)
+- startTransition 里的方法不能有异步函数，设置异步会打乱渲染顺序，这个渲染就失去作用了。
+- 标记为 transition 的 state 会被其他 state 的更新打断。如果您在 transition 中更新图表组件，但在图表处于重新渲染过程中开始在另外的 input 中键入输入，则 React 将在处理输入更新后重新启动图表组件的渲染工作。
+- 不能用于控制文本输入
+- 如果有多个正在进行的 transition，React 目前会将它们批处理在一起。此功能可能会在将来的版本中删除
+
+### 使用案例
+
+1. 切换 tab 卡顿问题：
+
+这里有几个tab，tab内容如下：
+
+```js
+// tab 1 一个按钮
+<button onClick={() => {
+  onClick();
+}}>
+  {children}
+</button>
+
+// tab 2 一个 p
+return (
+    <p>Welcome to my profile!</p>
+);
+
+// tab 3 一个复杂列表
+let items = [];
+for (let i = 0; i < 500; i++) {
+    items.push(<SlowPost key={i} index={i} />);
+}
+return (
+    <ul className="items">
+      {items}
+    </ul>
+);
+
+function SlowPost({ index }) {
+  let startTime = performance.now();
+  while (performance.now() - startTime < 1) {
+    // 人为模拟的卡顿
+  }
+
+  return (
+    <li className="item">
+      Post #{index + 1}
+    </li>
+  );
+}
+```
+
+可以看到，tab3包含 500 个元素，页面渲染势必会卡顿1-2秒，我们写一个 tab 切换组件：
+
+```js
+export default function TabContainer() {
+  const [isPending, startTransition] = useTransition();
+  const [tab, setTab] = useState(1);
+
+  function selectTab(nextTab) {
+    setTab(nextTab);      
+  }
+
+  return (
+    <>
+      <TabButton
+        isActive={tab === 1}
+        onClick={() => selectTab(1)}
+      >
+        About
+      </TabButton>
+      ...
+      <TabButton
+        isActive={tab === 3}
+        onClick={() => selectTab(3)}
+      >
+        Posts (slow)
+      </TabButton>
+      ...
+    </>
+  );
+}
+```
+上面的例子，TabButton 是一个公共子组件，是几个顶部的按钮，用于接受事件切换 tab：
+
+```js
+<button onClick={() => {
+  // 调用父组件TabContainer的 selectTab 方法
+  onClick();
+}}>
+  {children}
+</button>
+```
+
+Posts 页签（tab3）在 active 的时候就会加载渲染，我们来看看页面的反应：
+
+
+![image.png](/images/2023-8-18/2023-8-18-1.png)
+
+我们接入 useTransition 试试：
+
+```js
+const [isPending, startTransition] = useTransition();
+  const [tab, setTab] = useState('about');
+
+  function selectTab(nextTab) {
+    startTransition(() => {
+      setTab(nextTab);      
+    });
+  }
+```
+
+再次切换 tab 看看效果：
+
+![image.png](/images/2023-8-18/2023-8-18-2.png)
+
+截图看的不明显，我在图上把效果用文字标识出来了。也就是说跟 startTransition 相关的 state 的变化引起的渲染都会进入过渡中。
+
+2. 子组件更改父组件 state
+
+上面的例子，你也可以将更改 state 的操作放在子组件中，效果是一样的。我们改写 tabButton 组件：
+
+```js
+<button onClick={() => {
+  startTransition(() => {
+    // 调用父组件TabContainer的 selectTab 方法
+    onClick();
+  });
+}}>
+  {children}
+</button>
+```
+而在父组件中，就可以直接设置 state 了：
+
+```js
+function selectTab(nextTab) { 
+  setTab(nextTab); 
+}
+```
+
+3. 页面上显示阻塞渲染时的进度
+
+这个就是 useTransition 的返回值 isPending 的应用，他为 true 时表示这个过渡动画还在进行中。
+
+```js
+const [isPending, startTransition] = useTransition();
+ 
+if (isPending) {
+  return <b className="pending">{children}</b>;
+}
+```
+
+4. 与 Suspends 结合，做组件懒加载
+
+沿用第二个例子的代码，子组件tabButton实现useTransition，我们只改父组件：
+
+```js
+<Suspense fallback={<h1>🌀 Loading...</h1>}>
+  <TabButton
+    isActive={tab === 'about'}
+    onClick={() => setTab('about')}
+  >
+    About
+  </TabButton>
+  ...
+</Suspense>
+```
+这样在第一次加载时就会出现 fallback提示：
+
+
+![image.png](/images/2023-8-18/2023-8-18-3.png)
+
+使用 Suspense 的好处在于，复杂组件只需加载一次，第二次切换加载时就被缓存了，可以很快的渲染.
+
+5. 自定义一个自己的 react 路由！（当然不是真的路由）
+
+
+我们可以像下面这样定义一个 Router 函数：
+
+```js
+function Router() {
+  const [page, setPage] = useState('/');
+  const [isPending, startTransition] = useTransition();
+
+  function navigate(url) {
+    startTransition(() => {
+      setPage(url);
+    });
+  }
+
+  let content;
+  if (page === '/') {
+    content = (
+      <IndexPage navigate={navigate} />
+    );
+  } else if (page === '/the-beatles') {
+    content = (
+      <ArtistPage
+        artist={{
+          id: 'the-beatles',
+          name: 'The Beatles',
+        }}
+      />
+    );
+  }
+  return (
+    <Layout isPending={isPending}>
+      {content}
+    </Layout>
+  );
+}
+```
+来分析一下，上面 Layout 组件是自己定义的一个容器组件，内部直接抛出 children 属性即可；上面判断当前的状态 page 是 `'/the-beatles'` 和 `'/'` 时，自动渲染不同的组件；其中，`navigate` 函数用于导航跳转，他其实操作的就是一个带 Transition 的 setPage，这样就实现了一个平滑的路由切换。
+
+
+### Q&A
+
+1. 为啥我的 input 中 useTransition 不生效？？
+
+因为你试图用他来控制输入框，这是不支持的：
+
+```js
+const [text, setText] = useState('');
+// ...
+function handleChange(e) {
+  // ❌ Can't use transitions for controlled input state
+  startTransition(() => {
+    setText(e.target.value);
+  });
+}
+// ...
+return <input value={text} onChange={handleChange} />;
+```
+这是因为 useTransition 是非阻塞渲染的，但是输入框比较特殊，他的 change 事件必须是同步更新的，如果你非要使用平滑过渡来控制输入组件，有如下两种方案：
+
+- 定义两个 state，一个用于控制输入，一个用于监听输入值变化后同步更新
+- 使用 [`useDeferredValue`](https://react.dev/reference/react/useDeferredValue) 来代替
+
+2. 我的 state 变化似乎没有实现过渡，还是被阻塞了？
+
+因为你在 startTransition 使用异步了：
+
+```js
+// 案例1
+startTransition(() => {
+  // ❌ Setting state *after* startTransition call
+  setTimeout(() => {
+    setPage('/about');
+  }, 1000);
+});
+
+// 案例2
+startTransition(async () => {
+  await someAsyncFunction();
+  // ❌ Setting state *after* startTransition call
+  setPage('/about');
+});
+```
+如果非得使用 setTimeout，可以这样：
+
+```js
+// 案例1
+setTimeout(() => {
+  startTransition(() => {
+    // ✅ Setting state *during* startTransition call
+    setPage('/about');
+  });
+}, 1000);
+
+// 案例2
+await someAsyncFunction();
+startTransition(() => {
+  // ✅ Setting state *during* startTransition call
+  setPage('/about');
+});
+```
+
+3. 我的代码执行顺序不太对：it will print 1, 2, 3:
+
+```js
+console.log(1);
+startTransition(() => {
+  console.log(2);
+  setPage('/about');
+});
+console.log(3);
+```
+但是，1 2 3 就应该是期望的顺序，不同于 setTimeout，startTransition 还是立即执行函数的，只是渲染不同步而已，他的简单实现类似于：
+
+```js
+let isInsideTransition = false;
+
+function startTransition(scope) {
+  isInsideTransition = true;
+  scope();
+  isInsideTransition = false;
+}
+
+function setState() {
+  if (isInsideTransition) {
+    // ... schedule a transition state update ...
+  } else {
+    // ... schedule an urgent state update ...
+  }
+}
+```
+其定义一个全局变量 isInsideTransition = true，在执行完回调函数后，置为 false；设置 state 时判断为 true 时表示在过渡中，此时执行过渡的操作。所以可以看到，他并不阻塞 scope 的执行。
+
+
+## 2. useDeferredValue
+
+一个可以让你延迟（defer）更新UI的 hook。
+
+- 接收参数 value：你想要延迟的值，可以是任何类型。
+- 返回值：在初始渲染期间，返回的延迟值将与你提供的值相同。在更新期间，React 将首先尝试使用旧值重新渲染（因此它将返回旧值），然后尝试使用新值在后台重新渲染（因此它将返回更新的值）。
+
+### 使用案例
+
+1. 弥补useTransition不足：监听input输入并平滑过渡
+
+```js
+import { Suspense, useState } from 'react';
+import SearchResults from './SearchResults.js';
+
+export default function App() {
+  const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
+  
+  return (
+    <>
+      <label>
+        Search albums:
+        <input value={query} onChange={e => setQuery(e.target.value)} />
+      </label>
+      <Suspense fallback={<h2>Loading...</h2>}>
+        <SearchResults query={deferredQuery} />
+      </Suspense>
+    </>
+  );
+}
+```
+上面的例子，每当输入框输入时，Suspense 的 fallback 将不再渲染，而是直接平滑过渡显示最新的值，这就使得显示更加稳定，不会抖动。
+
+
+![image.png](/images/2023-8-18/2023-8-18-4.png)
+
+上图中，输入值，输入框立马变化，下面显示区域演示变化，但不会显示 fallback 的 loading。
+
+2. 添加渲染过度动画
+
+在上面例子的基础上，添加一个透明效果：
+
+```js
+ // 旧值和新值不一样，表示在过渡中，过渡完毕后 query 会变为与 deferredQuery 一样
+ const isStale = query !== deferredQuery;
+ ...
+ <Suspense fallback={<h2>Loading...</h2>}>
+    <div style={{
+      opacity: isStale ? 0.5 : 1,
+      transition: isStale ? 'opacity 0.2s 0.2s linear' : 'opacity 0s 0s linear'
+    }}>
+      <SearchResults query={deferredQuery} />
+    </div>
+</Suspense>
+```
+如图，在输入过程中，结果文字变为半透明：
+
+![image.png](/images/2023-8-18/2023-8-18-5.png)
+
+3. 优化长列表渲染
+
+SlowList 可以理解为一个肥肠多数据的长列表，每一个列表都有一个公共的值要控制，叫做 deferredText，我们这样实现：
+
+```js
+export default function App() {
+  const [text, setText] = useState('');
+  const deferredText = useDeferredValue(text);
+  return (
+    <>
+      <input value={text} onChange={e => setText(e.target.value)} />
+      <SlowList text={deferredText} />
+    </>
+  );
+}
+
+```
+这样过渡是就不会出现短时间界面卡顿不可交互的情况，不然就会这样：
+
+![image.png](/images/2023-8-18/2023-8-18-6.png)
+
+上图不使用useDeferredValue，没输入一下，就会卡一下，页面阻塞。使用了 useDeferredValue 就会一步渲染，不会阻塞你输入啦！可以去官网例子试试：[codesandbox.io/s/r6hcz2?file=%2FApp.js&utm_medium=sandpack](https://codesandbox.io/s/r6hcz2?file=%2FApp.js&utm_medium=sandpack)
+
+> `SlowList` 组件应该放在 memo 里，不然优化会失效。每次deferredText变化时，App组价由于状态变化了，会重新渲染，导致 SlowList 变为了新的组件了。
+
+-----
+完！
