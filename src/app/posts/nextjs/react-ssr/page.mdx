@@ -1,0 +1,690 @@
+# 讲讲 React 服务端渲染最佳实践方案【新版React + Nextjs 官方文档解读】
+---
+
+## 1. 服务端渲染
+
+服务端渲染是服务端返回渲染出的 html 字符串（或数据流），浏览器来解析 html 以构建页面。在 React 开发中，要想使用 SSR，有两种方式：
+
+1. 使用 Nextjs
+2. 手动搭建服务端渲染
+
+官网提到的服务端 API 就是 React 提供的支持手动搭建服务端渲染的。其**本质是服务端直接将一个生成好的 HTML 给到前端，前端一次性渲染**，便于加速首屏加载和进行 SEO。这里有个问题，客户端工作并不仅仅是渲染服务器返回的 html，为了保证服务端返回的 html 在客户端能够处理事件和交互，客户端要重新进行 vdom 的构建和事件绑定，即，**在渲染出 html 后，把相应组件关联到其对应的组件上，并添加交互逻辑和管理之后的渲染（html 映射为 React 树）**。
+
+也就是说，前端组件逻辑在服务端渲染一次后，在客户端也要针对性的渲染一次，这个过程叫水合（hydrate），这两次渲染叫做同构渲染。
+
+> 尽管服务端渲染（SSR）并 hydrate 的过程比纯粹的客户端渲染（CSR）看起来更繁琐，但是它实际上可以节省渲染时间，特别是在复杂的 React 应用中。
+
+### SSR vs CSR
+
+服务端用来存储和响应数据，客户端用于请求和展示数据，他们都有自己的渲染方式。尽管这两种方法都涉及到从服务器获取 HTML 并在浏览器中解析，但它们之间存在一些重要的区别。
+
+1.  初始渲染：SSR 系统中，服务端已经返回了完整的页面，客户端只需要做少量的水合操作即可；CSR 系统中，服务器返回的是入口的最小化的 html (index.html)，客户端需要通过下载好的 css、js 文件逐行解析并构建 DOM 和 CSSOM，最终生成完整的 html。
+2.  交互性：在 SSR 中，由于 HTML 是在服务器上预先渲染的，所以从一开始就具有交互性。这意味着用户可以在页面加载后立即看到所有的功能和内容，而不需要等待客户端 JavaScript 代码执行。而在 CSR 中，用户可能需要等待一段时间（js执行，DOM构建等耗时操作）才能看到交互功能。
+3.  SEO：由于搜索引擎通常更擅长解析 HTML，而不是 JavaScript，因此 SSR 可以提高搜索引擎优化（SEO）。搜索引擎可以更容易地读取和理解 SSR 生成的 HTML 中的内容。而 CSR 初始化的 html 仅仅是一个入口文件，没有爬取的意义。可以参见这篇优化 [SEO 优化](https://juejin.cn/post/7295651353854132239)
+4.  性能：SSR 在服务器上完成渲染，这意味着服务器需要更多的计算资源。而 CSR 将渲染工作转移到了客户端，这可以减轻服务器的负担。然而，随着硬件性能的提高和优化技术的进步，这种差异变得越来越小。
+5.  复杂性：SSR 需要更多的开发工作，因为它涉及到在服务器端处理渲染和在客户端处理 hydrate（将 HTML 转换为 React 组件）。而 CSR 更简单，因为它只需要在客户端处理渲染。
+
+总的来说，虽然 SSR 和 CSR 在技术上有一些区别，但它们都可以有效地渲染 React 应用。选择哪种方法取决于具体的应用需求和场景。
+
+下面图解说明一下：
+
+SSR:
+
+
+![无标题-2023-10-11-1617.png](/images/2023-11-3/2023-11-3-1.png)
+
+----
+
+CSR:
+
+![无标题-2023-10-11-1617.png](/images/2023-11-3/2023-11-3-2.png)
+
+### SSR 适用的场景
+
+- 需要 SEO 优化的场景
+- 需要更快的首屏时间
+- 静态页面或者blog类内容展示类网页
+- 需要增强用户可访问性的页面：能够快速获取页面内容并进行浏览
+
+### CSR 适用的场景
+
+- 高交互性、实时更新的场景：
+- 复杂前端逻辑场景：CSR 对于复杂的交互和动态效果的支持较好，开发也相对简单。
+- API驱动的应用程序：CSR 允许客户端获取数据来处理，可以减少服务器负载并提供响应式体验。
+
+## 2. React SSR 的几种 API
+
+官网提供了这么几个 API 用于在服务端渲染 React 组件：
+
+### renderToString
+
+它可以将 React 组件渲染成字符串，最常用的 SSR API。它返回一个字符串，其中包含 HTML 和 React 组件的标记。这个 API 可以在服务器端使用，将 React 组件渲染成 HTML，然后将 HTML 发送到客户端。
+
+服务端这样写（nodejs为例）
+
+
+```js
+import { renderToString } from 'react-dom/server';
+
+app.use('/', (request, response) => {
+  const html = renderToString(<App />);
+  response.send(html);
+});
+```
+
+在客户端浏览器接收到它后，要使用 React 语言渲染出来：
+
+
+```js
+import { hydrateRoot } from 'react-dom/client';
+
+hydrateRoot(document.getElementById('root'), <App/>);
+```
+
+hydrate 会在渲染的过程中，不创建 html 标签，而是直接关联已有的。这样就避免了没必要的渲染。
+
+### renderToPipeableStream
+
+它可以将 React 组件渲染为可读的 Stream。使用方式有略微不同：
+
+```js
+import { renderToPipeableStream } from 'react-dom/server';
+
+const stream = renderToPipeableStream(<App />);  
+response.set('Content-Type', 'text/html');  
+stream.pipe(res);  
+```
+
+不同于 renderToString，他可以作为一个管道不断往服务器响应里输出内容。`renderToPipeableStream`提供了更高级的特性，例如路由控制、异步数据加载等。它返回一个可读的Stream对象，这个对象可以用于将React组件渲染为HTML文档的流式传输。使用`renderToPipeableStream`可以在服务器端实现更复杂的渲染逻辑，例如**根据路由路径动态加载组件、按需加载数据**等。
+
+### renderToReadableStream
+
+他是 renderToPipeableStream 的一种替代方案。
+
+使用方式：
+
+```js
+import { renderToReadableStream } from 'react-dom/server';
+
+async function handler(request) {
+  const stream = await renderToReadableStream(<App />, {
+    bootstrapScripts: ['/main.js']
+  });
+  return new Response(stream, {
+    headers: { 'content-type': 'text/html' },
+  });
+}
+```
+这个 API 返回的是一个 Promise，依赖 web 流，目前的兼容性存在问题。可以参考 web 流的概念：[Stream API](https://developer.mozilla.org/en-US/docs/Web/API/Streams_API)
+
+### renderToStaticMarkup
+
+`renderToStaticMarkup` 会将非交互的 React 组件树渲染成 HTML 字符串。其输出无法进行二次渲染，且对 Suspense 的支持有限。不建议在客户端代码中使用它。
+
+使用方式：
+
+```js
+import { renderToStaticMarkup } from 'react-dom/server';
+
+// 路由处理程序语法取决于你的后端框架
+app.use('/', (request, response) => {
+  const html = renderToStaticMarkup(<Page />);
+  response.send(html);
+});
+```
+
+如果要渲染的是纯静态内容，则非常合适。
+
+
+### renderToStaticNodeStream
+
+`renderToStaticNodeStream` 可以为 [Node.js 只读流](https://nodejs.org/api/stream.html#readable-streams) 渲染非交互式 React 树。
+
+其使用也是一个管道，并声称静态的非交互式网页。不同的是，他需要等待所有 [Suspense边界](https://zh-hans.react.dev/reference/react/Suspense) 完成后才返回输出，且返回给客户端的输出结果不支持 hydrate。这个方法的作用在于缓冲所有输出，这个输出是一个utf-8 编码的字节流，
+
+----
+
+上面的 API 用于在自定义的服务器中手动部署 SSR，但是一般情况下，推荐使用 Nextjs 部署一个 SSR 应用。
+
+## 3. React SSR/SSG 最佳实践方案 - Next
+
+官方文档推荐使用 Nextjs 来配置 SSR 页面，最新版的 React 也推荐使用 [Nextjs](https://www.nextjs.cn/learn/basics/create-nextjs-app/setup) 来创建 React App。我们来实战一下。
+
+> Node >= v18，，最新版的 next 需要 node18+
+
+### ①. 新建一个空的 npm 仓库
+
+```shell
+npm init
+```
+
+### ②. 安装依赖
+
+```shell
+yarn add next react react-dom
+```
+
+### ③. 修改 `package.json`
+
+```json
+"scripts": {
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start",
+  "lint": "next lint"
+}
+```
+
+### ④. 创建页面文件
+
+- 项目中创建一个 `pages` 目录
+- 目录中写一个 index.js
+
+
+```js
+function HomePage() {
+  return <div>Welcome to Next.js!</div>
+}
+
+export default HomePage
+```
+
+- 目录中再写一个页面 about.js
+
+
+```js
+function AboutPage() {
+  return <div>Welcome to My blog!</div>
+}
+
+export default AboutPage
+```
+
+- 启动项目 `yarn dev`
+- 通过路由访问页面看看：`localhost:3000/about`
+
+
+### ⑤. 添加动态路由
+
+pages 目录中创建一个文件夹叫 posts，在下面创建动态路由页面 \[pid].js
+
+```js
+import { useRouter } from 'next/router'
+
+const Post = () => {
+  const router = useRouter()
+  const { pid } = router.query
+
+  return <p>Post: {pid}</p>
+}
+
+export default Post
+```
+
+使用 `localhost:3000/post/abc` 访问查看页面效果
+
+
+![image.png](/images/2023-11-3/2023-11-3-3.png)
+
+### ⑥. 配置预渲染
+
+- SSG
+
+如果你的页面是纯静态页，使用 SSG 时，HTML 文件将在每个页面请求时被重用，还可以被 CDN 缓存。如果你的页面不需要获取外部数据，可以这么写，posts 下新建一个 blog.js：
+
+
+```js
+function Blog() {
+  const posts = [...];
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+
+export default Blog
+```
+
+博客渲染自然会依赖外部接口，可以这么配置，在同文件（blog.js）中导出一个async函数：
+
+```js
+// posts 是外部接口获取到后， getStaticProps 传入的
+function Blog({ posts }) {...}
+
+export async function getStaticProps() {
+  // 调用外部 API 获取博文列表 (编译和打包时就会调用)
+  const res = await fetch('https://.../posts')
+  const posts = await res.json()
+
+  // 通过返回 { props: { posts } } 对象，Blog 组件
+  // 在构建时将接收到 `posts` 参数
+  return {
+    props: {
+      posts,
+    },
+  }
+}
+```
+> getStaticProps 函数，在页面打包时就会执行并缓存，在线上模式便不会反复执行。而在开发环境，每次刷新页面时，整个页面会等待 fetch 返回数据后才加载。
+
+
+此外，动态路由页 \[pid].js 的渲染，也会依赖外部动态接口，传入 abc，就表示展示 abc 这一篇文章的信息，现在来配置路径预渲染（pages/posts/\[pid].js 中）：
+
+
+```js
+// 此函数在构建时被调用
+export async function getStaticPaths() {
+  // 调用外部 API 获取博文列表
+  const res = await fetch('https://.../posts')
+  const posts = await res.json()
+
+  // 据博文列表生成所有需要预渲染的路径
+  const paths = posts.map((post) => ({
+    params: { pid: post.id },
+  }))
+
+  // We'll pre-render only these paths at build time.
+  // { fallback: false } means other routes should 404.
+  return { paths, fallback: false }
+}
+
+// 在构建时也会被调用
+export async function getStaticProps({ params }) {
+  // params 包含此片博文的 `pid` 信息。
+  // 如果路由是 /posts/1，那么 params.pid 就是 1
+  const res = await fetch(`https://.../posts/${params.pid}`)
+  const post = await res.json()
+
+  // 通过 props 参数向页面传递博文的数据
+  return { props: { post } }
+}
+```
+
+上面的代码，getStaticPaths 返回允许访问的 pid 集合，比如接口返回了数据 paths: \[1,2,3,4], 那么你请求 `localhost:3000/posts/5` 就会 404; getStaticProps 的逻辑与上面一样，实际访问了 pid=1的路径，那么 params 就是 `{pid: 1}`，然后阻塞页面去获取数据。
+
+- SSR
+
+如果你要使用 **服务器端渲染**，则会在 **每次页面请求时** 重新生成页面的 HTML，虽然速度不及前者，但是预渲染的页面将始终是最新的。
+
+类似地，也在页面文件导出一个async函数：
+
+
+```js
+function Blog({ data }) {
+  // Render data...
+}
+
+// This gets called on every request
+export async function getServerSideProps() {
+  // Fetch data from external API
+  const res = await fetch(`https://.../data`)
+  const data = await res.json()
+
+  // Pass data to the page via props
+  return { props: { data } }
+}
+```
+执行过程大同小异，不同的是每次线上请求页面都会去调用 getServerSideProps 来请求接口。
+
+### ⑦. 配置入口组件
+
+在 pages 目录下配置一个文件 _app.js:
+
+```js
+// 如果有 css 就引入
+import '../styles.css'
+
+// 新创建的 `pages/_app.js` 文件中必须有此默认的导出（export）函数
+export default function MyApp({ Component, pageProps }) {
+  return <Component {...pageProps} />
+}
+```
+_app.js 默认是所有页面文件的总入口，他可以接受两个参数，Component 是当前的组件，pageProps 是这个组件的 props。作为统一的入口，在这里你就可以配置很多参数了，比如 seo配置、公共样式、布局菜单等。
+
+### ⑧. 配置样式
+
+在项目根目录创建 style.css，并在 _app.js 中引入：
+
+
+```css
+body {
+  font-family: 'SF Pro Text', 'SF Pro Icons', 'Helvetica Neue', 'Helvetica',
+    'Arial', sans-serif;
+  margin: 0 auto;
+}
+```
+
+如果要使用 sass，可以先安装依赖：
+
+```
+yarn add sass
+```
+
+在项目中引入 sass 模块：
+
+```js
+import variables from '../styles/variables.module.scss'
+```
+
+### ⑨. 页面布局
+
+在 _app.js 中引入自定义的布局组件：
+
+```js
+import Layout from '../components/layout'
+
+export default function MyApp({ Component, pageProps }) {
+  return (
+    <Layout>
+      <Component {...pageProps} />
+    </Layout>
+  )
+}
+```
+
+Layout 可以是下面的形式：
+
+```js
+import useSWR from 'swr'
+import Navbar from './navbar'
+import Footer from './footer'
+
+export default function Layout({ children }) {
+  const { data, error } = useSWR('/api/navigation', fetcher)
+
+  if (error) return <div>Failed to load</div>
+  if (!data) return <div>Loading...</div>
+
+  return (
+    <>
+      <Navbar links={data.links} />
+      <main>{children}</main>
+      <Footer />
+    </>
+  )
+}
+```
+
+这里用了第三方库来请求，其中的 fetcher 可以这么写：
+
+```js
+const fetcher = (url) => fetch(url).then((res) => res.json());
+```
+
+### ⑩. 配置静态资源
+
+在根目录下新建 public 目录。
+
+- 引入本地图片
+
+```js
+import Image from 'next/image'
+import profilePic from '../public/me.png'
+
+<Image
+    src={profilePic}
+    alt="Picture of the author"
+/>
+```
+- 加载远程图片
+
+```js
+<Image
+    src="/me.png"
+    alt="Picture of the author"
+    width={500}
+    height={500}
+    priority
+/>
+```
+远程资源域名配置有两种方式，在根目录下新建配置文件 next.config.js:
+
+第一种：
+```js
+module.exports = {
+  images: {
+    domains: ['example.com', 'example2.com'],
+  },
+}
+```
+这个配置专门用于加载图片，设置域名只是其中一个选择项，默认使用数组第一个域名，在具体使用时，可以手动指定数组中的枚举项：`<Image src="/images/my-image.jpg?domain=https://example2.com" alt="My Image" />`
+
+第二种：
+
+```js
+async rewrites() {
+    return {
+      fallback: [
+        {
+          source: '/home/:image*',
+          destination: `https://${isProd ? CDNPath : filePath}/home/:image*`
+        }
+      ]
+    }
+}
+```
+这个配置用于重写规则，作用域比较广，还可以用来拦截 API 请求等。
+
+- 使用外挂字体
+
+在 pages 新建一个 _document.js 文件：
+
+```js
+import Document, { Html, Head, Main, NextScript } from 'next/document'
+
+class MyDocument extends Document {
+  render() {
+    return (
+      <Html>
+        <Head>
+          <link
+            href="https://fonts.googleapis.com/css2?family=Inter&display=optional"
+            rel="stylesheet"
+          />
+        </Head>
+        <body>
+          <Main />
+          <NextScript />
+        </body>
+      </Html>
+    )
+  }
+}
+
+export default MyDocument
+```
+
+> _document.js 用于自定义 \<head> 标签、定义 CSS 样式、添加元数据（metadata）等
+
+- 使用外部脚本
+
+```js
+class MyDocument extends Document {
+...
+    <Head>
+        <Script src="https://connect.facebook.net/en_US/sdk.js" strategy="lazyOnload" />
+    </Head>
+    <body>
+      <Main />
+      <NextScript />
+    </body>
+}
+```
+
+### ⑪. 环境变量配置
+
+Next.js 内置支持将环境变量从 `.env.local` 加载到 `process.env` 中。你可以在本地根目录文件 `.env.local` 中写入自定义的变量：
+
+```
+environment=development
+```
+
+然后可以在配置文件中获取：`process.env.environment`
+
+你也可以直接加上前缀：NEXT_PUBLIC
+
+```
+NEXT_PUBLIC_ANALYTICS_ID=abcdefghijk
+```
+这样的变量会加载在nodejs中，你在js文件里也可以通过 process 来访问了。
+
+### ⑫. 配置i18n
+
+安装依赖：`yarn add react-i18next i18next next-i18next`
+
+在 _app.js 中引入：
+
+```js
+import { appWithTranslation } from 'next-i18next';
+
+...
+export default memo(appWithTranslation(MyApp));
+```
+
+在 public 文件夹里写入中英文文案：
+
+![image.png](/images/2023-11-3/2023-11-3-4.png)
+
+![image.png](/images/2023-11-3/2023-11-3-5.png)
+
+![](/images/2023-11-3/2023-11-3-6.png)
+
+根目录下添加配置文件 next-i18next.config.js：
+
+```js
+module.exports = {
+  i18n: {
+    localeDetection: false, // 不检测浏览器语言环境
+    defaultLocale: 'en',
+    locales: ['en' , 'zh']
+  },
+  localePath: typeof window === 'undefined'
+    ? require('path').resolve('./public/locales')
+    : require('path').resolve('./public/locales'),
+  reloadOnPrerender: process.env.NEXT_PUBLIC_DOMAIN_ENV === 'development',
+};
+```
+并在 next-config.js 中引入：
+
+```js
+const { i18n } = require('./next-i18next.config');
+
+module.exports = () => {
+
+  return {
+    i18n,
+  }
+}
+```
+
+在组件中使用：
+
+```js
+import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import { useTranslation } from 'next-i18next';
+
+const { t } = useTranslation(['common']);
+
+...
+// 渲染时使用
+<button className={`${Style['btn-link']} mr-16 primary button-outlined`}>
+  {t('login')}
+</button>
+...
+
+export const getStaticProps = async ({
+  locale,
+}) => {
+  return {
+    props: {
+      ...(await serverSideTranslations(locale ?? 'en', [
+        'common'
+      ])),
+    },
+  }
+}
+
+```
+i18n 会在预编译的时候，往 getStaticProps 传入国际化文案参数。控制显示哪一个文案，是根据配置的目录和访问路径来的，比如要显示中文，locales下有个zh文件夹，你的访问路径也应该对应：
+
+
+![image.png](/images/2023-11-3/2023-11-3-12.png)
+
+所以可以写一个全局的切换按钮，来控制路由变化：`window.location.href = '/zh';`
+
+
+### ⑬. 自定义配置
+
+nextjs 提供自定义配置文件 next.config.js (或 mjs，使用 ESM) 用于高级配置:
+
+```js
+// 常用配置
+const { PHASE_DEVELOPMENT_SERVER } = require('next/constants')
+
+module.exports = (phase, { defaultConfig }) => {
+  // 开发环境配置
+  if (phase === PHASE_DEVELOPMENT_SERVER) {
+    return {
+        env: {
+          env: 'dev', // 可在页面使用：<h1>env is: {process.env.env}</h1>
+        },
+        basePath: '/docs', // 基础路径，所有的Link跳转会以这个为基础
+        compress: false, // 压缩代码
+        generateEtags: false, // 禁用 ETag ？
+        distDir: 'build', // 自定义输出目录
+        async redirects() {  // 重定向
+          return [
+            {
+              source: '/about',
+              destination: '/',
+              permanent: true,
+            },
+          ]
+        },
+        async rewrites() { // 重写资源路径，默认是在检查文件系统（页面和`/public`文件）之后、动态路由之前应用的；使用 fallback 表示每次检查文件和动态路由之后触发
+          return {
+            fallback: [
+              {
+                source: '/home/:image*',
+                destination: `https://${isProd ? CDNPath : filePath}/home/:image*`
+              },
+            ]
+          }
+        },
+      }
+  }
+
+  return {
+    // 同上...
+  }
+}
+```
+### ⑭. 部署
+
+- 将代码推送到 github
+- 注册一个 vercel账号：https://vercel.com/signup
+- 选择关联仓库，选中你的仓库
+
+
+![image.png](/images/2023-11-3/2023-11-3-7.png)
+
+
+![image.png](/images/2023-11-3/2023-11-3-8.png)
+
+- 点击部署后会自动部署
+
+
+![image.png](/images/2023-11-3/2023-11-3-9.png)
+
+- 然后在 github 仓库右侧会出现链接：
+
+
+![image.png](/images/2023-11-3/2023-11-3-10.png)、
+
+- 查看博客
+
+
+![image.png](/images/2023-11-3/2023-11-3-11.png)

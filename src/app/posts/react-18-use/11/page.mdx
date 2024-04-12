@@ -1,0 +1,150 @@
+# 新版React官方文档解读（十一）- Client API 之 createRoot、hydrateRoot
+---
+本期来讲解一下 react-dom 库中用于客户端渲染的 API 们。
+
+## 1. 纯客户端渲染 createRoot
+
+createRoot 用于客户端创建 React 渲染的根节点。（服务端渲染无效）
+
+这里主要介绍使用方式。
+
+### 使用方式 
+
+1. 初始化一个 React 项目
+
+```js
+import { createRoot } from 'react-dom/client';
+import App from './App.js';
+import './styles.css';
+
+const root = createRoot(document.getElementById('root'));
+root.render(<App />);
+```
+
+上面的人代码，createRoot 获取一个真实的 DOM 元素对象本身作为入参，返回 React 渲染树的根节点，他有 `render` 和 `unmount` 两个方法。他作为项目的入口，只建议使用一次。
+
+其执行流程如下：
+
+- 查找 HTML 中传入的 DOM node.
+- 在该 DOM 中放置组件 App （会清空已有元素）
+
+2. 项目中部分渲染
+
+比如项目中有一个 html 页面：
+
+```html
+<nav id="navigation"></nav>
+<main>
+  <p>This paragraph is not rendered by React (open index.html to verify).</p>
+  <section id="comments"></section>
+</main>
+```
+
+我们引入一个js文件：
+
+```js
+const navDomNode = document.getElementById('navigation');
+const navRoot = createRoot(navDomNode); 
+navRoot.render(<Navigation />);
+
+const commentDomNode = document.getElementById('comments');
+const commentRoot = createRoot(commentDomNode); 
+commentRoot.render(<Comments />);
+```
+这样，在 nav 和 main 中就各自产生了一个 React 的渲染树：
+
+
+![image.png](/images/2023-9-17/2023-9-17-1.png)
+
+如果你想要撤销上述渲染工作，可以这样写：
+
+```js
+root.unmount();
+```
+
+3. 更新已经渲染过的React树
+
+已经创建出来的 root，如果想要替换其渲染内容，可以这样：
+
+```js
+root.render(<App counter={i} />);
+```
+
+这会销毁原来的渲染，而重新建立新的渲染树。下面的例子就是利用这种原理实现的页面计时器：
+
+```js
+setInterval(() => {
+  root.render(<App counter={i} />);
+  i++;
+}, 1000);
+```
+每过一秒就刷新一下页面渲染的组件。
+
+
+## 2. 水合服务端渲染代码 hydrateRoot
+
+`hydrate` 的主要作用是在客户端接管从服务器端渲染的应用程序，并将应用程序的状态与服务器端保持一致。
+
+在传统的 SSR 过程中，服务器端会渲染出 HTML 字符串，并将其发送给客户端。然后，客户端的 JavaScript 代码会接管这个已经渲染好的页面，并对其进行交互处理。但是，在客户端接管页面之前，用户可能会看到一个空白屏幕或者不完全渲染的页面，这被称为“闪烁”现象。
+
+`hydrate` 方法可以解决这个问题。它允许在服务器端渲染的 HTML 中插入一些特殊的注释（称为“hydration markers”），这些注释包含了客户端 JavaScript 需要的一些信息，例如应用程序的状态、组件的类型等等。当客户端加载页面时，它会查找这些注释，并使用这些信息来恢复应用程序的状态，从而快速接管页面，并减少“闪烁”现象。
+
+使用 `hydrate`（水合） 方法，可以使 SSR 的应用程序更加流畅地过渡到客户端，提高用户体验。
+
+### 使用方式
+
+1. 接收服务端过来的 html
+
+我们假设一段服务端过来的代码：
+
+```html
+<!--
+  HTML content inside <div id="root">...</div>
+  was generated from App by react-dom/server.
+-->
+<div id="root"><h1>Hello, world!</h1><button>You clicked me <!-- -->0<!-- --> times</button></div>
+```
+
+可以看到，有个 id 叫做 root 的根元素，我们就在入口文件中渲染：
+
+```js
+import { hydrateRoot } from 'react-dom/client';
+import App from './App.js';
+
+hydrateRoot(
+  document.getElementById('root'),
+  <App />
+);
+```
+
+这里 App 这个组件在 服务端返回的 html 中就有渲染好的版本，React 会根据传进来的第二个参数（App源码）重构渲染树进行渲染。
+
+2. 处理水合时的差异错误
+
+如果单个元素的属性或文本内容在服务器和客户端之间不可避免地存在差异（例如时间戳），您可以禁止水合不匹配的警告。要禁止某个元素的水合警告，请添加 `suppressHydrationWarning={true}`：
+
+```js
+hydrateRoot(document.getElementById('root'), <App />);
+```
+
+3. 区分服务端和客户端的不同
+
+如果你确实需要在客户端渲染一些与服务端不同的东西。 可以在客户端里这样写：
+
+```js
+export default function App() {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  return (
+    <h1>
+      {isClient ? 'Is Client' : 'Is Server'}
+    </h1>
+  );
+}
+```
+
+这样，在水合的过程中，就会针对性的渲染了。这种方式就是说可以在 SSR 的基础上，客户端再增量更新只需要客户端渲染的内容，比如上面提到的计数器等。

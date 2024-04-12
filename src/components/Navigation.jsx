@@ -197,6 +197,7 @@ export const navigation = [
       { title: 'react 18 官网解读', href: '/posts/react-18-use' },
       { title: 'react 源码分析', href: '/posts/react-source' },
       { title: 'react router v6 官网解读', href: '/posts/react-router-6' },
+      { title: 'nextjs 使用', href: '/posts/nextjs' },
       { title: '前端性能分析系列', href: '/posts/performance' },
       { title: '前端主题方案', href: '/posts/theme' },
       { title: '微前端 monto-app', href: '/posts/monto-app' },

@@ -1,0 +1,455 @@
+# 新版React官方文档解读（尾章）- 实验性功能
+---
+
+## 1. Hooks
+
+### use
+
+`use` 是一个可以在分支跟循环中使用的 React Hook，它可以让你读取类似于 [Promise](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Promise) 或 [context](https://zh-hans.react.dev/learn/passing-data-deeply-with-context) 的资源的值。
+
+> `use` Hook 目前仅在 canary 与 experimental 渠道中可用
+
+- 使用 use 读取 context 的值
+
+```js
+const theme = use(ThemeContext);
+```
+此时类似于 useContext，不过 use 更加灵活。React 会搜索组件树并找到 最接近的 context provider 以确定需要返回的 context 值。它向上搜索并忽略调用 `use(context)` 的组件本身中的 context provider。
+
+- 传递 promise 的值
+
+如果你使用了服务端渲染 API 来手动配置 SSR，你可能会在服务端推送一个流式（stream）数据，在客户端可以使用 use 接受。
+
+```js
+// 根组件通过 fetchMessage 获取流，包装为 promise 给到 Message组件
+export default function App() {
+  const messagePromise = fetchMessage();
+  return (
+    <Suspense fallback={<p>waiting for message...</p>}>
+      <Message messagePromise={messagePromise} />
+    </Suspense>
+  );
+}
+```
+
+Message组件中：
+
+```js
+// message.js
+'use client';
+
+import { use } from 'react';
+
+export function Message({ messagePromise }) {
+  const messageContent = use(messagePromise);
+  return <p>Here is the message: {messageContent}</p>;
+}
+```
+
+use 可以和 Suspense 联动，当传递的 promise 没有 fullfill 时，loading 一直生效，当 promise 成功以后，显示 resolve 的值。
+
+> 将来自服务器组件的 Promise 传递至客户端组件时，其解析值必须可序列化以在服务器和客户端之间传递。像函数这样的数据类型不可序列化，不能成为这种 Promise 的解析值。
+
+- 处理 promise 错误边界
+
+当 promise 报错时，use 需要手动设置捕获错误：
+
+```js
+import { ErrorBoundary } from "react-error-boundary";
+
+<ErrorBoundary fallback={<p>⚠️Something went wrong</p>}>
+  <Suspense fallback={<p>⌛Downloading message...</p>}>
+    <Message messagePromise={messagePromise} />
+  </Suspense>
+</ErrorBoundary>
+```
+
+上面的示例使用了第三方库，如果不使用 ErrorBoundary 包裹，还可以这样写：
+
+```js
+  const messagePromise = new Promise((resolve, reject) => {
+    reject();
+  }).catch(() => {
+    return "no new message found.";
+  });
+```
+使用 promise 自带的 catch 捕获错误。catch 中 return 的内容，会被视作正常的返回。
+
+> 不能在 React 组件或 Hook 函数之外调用 `use`，或者在 try-catch 块中调用 `use`
+
+### useOptimistic
+
+> `useOptimistic` Hook 目前仅在 canary 与 experimental 渠道中可用
+
+这个 hook 用于优化 UI 的更新。
+
+考虑下面的场景，界面上一个按钮，点击可以异步调用发送接口：
+
+```js
+<form action={formAction} ref={formRef}>
+  <input type="text" name="message" placeholder="Hello!" />
+  <button type="submit">Send</button>
+</form>
+```
+
+表单响应，在发送完数据后显示发送的数据：
+
+```js
+async function formAction(formData) {
+  // 这一条现在没有，下面引入乐观消息时加入
+  addOptimisticMessage(formData.get("message"));
+  formRef.current.reset();
+  await sendMessage(formData);
+}
+
+async function sendMessage(formData) {
+  // deliverMessage 是 API 的调用
+  const sentMessage = await deliverMessage(formData.get("message"));
+  setMessages([...messages, { text: sentMessage }]);
+}
+```
+这里有个问题，sendMessage 是个异步任务，在发送完成后，调用 setMessages 改变 state 的值，这时在发送记录列表里就会有一条记录。但是在发送过程中，该记录是不会出现的。
+
+此时，我们声明一个乐观状态：
+
+```js
+ const [optimisticMessages, addOptimisticMessage] = useOptimistic(
+    messages,
+    (state, newMessage) => [
+      ...state,
+      {
+        text: newMessage,
+        sending: true
+      }
+    ]
+  );
+```
+他第一个参数是刚刚的 state：messages，第二个参数是一个回调，实时接受最新的状态并返回自定义的结构。
+
+我们在列表渲染的地方就可以这样写了：
+
+```js
+{optimisticMessages.map((message, index) => (
+    <div key={index}>
+      {message.text}
+      {!!message.sending && <small> (Sending...)</small>}
+    </div>
+))}
+```
+这样，在发送的过程中，addOptimisticMessage 被调用了，数组追加的那个元素处于 sending 中，就会显示 sending 的文本；在接口请求成功后，optimisticMessages 会检测到请求完毕，自动离场。我们实验两次，打印一下这个 optimisticMessages 状态的值：
+
+
+![image.png](/images/2023-11-9/2023-11-9-1.png)
+
+当接口调用完毕后，因为调用了 sendMessage，所以 addOptimisticMessages 和 messages 两个状态就趋于一致了。
+
+> **useOptimistic** 是一种乐观更新机制，主要应用于需要与服务器进行异步交互的场景，如消息发送。在这种机制下，通常希望优先显示新数据或新状态，而不是等待服务器返回响应后再进行更新；
+> 
+> **useTransition** 主要解决的是在界面切换过程中可能出现的内容加载问题。它允许组件在切换到下一个界面之前等待内容加载，从而避免出现不必要的加载状态。
+
+### useFormState
+
+> `useFormState` Hook 目前仅在 canary 与 experimental 渠道中可用
+
+`useFormState` 是 react-dom 库下的 hook，允许根据表单操作的结果更新状态。我们可以这样使用：
+
+```js
+function AddToCartForm({itemID, itemTitle}) {
+  const [message, formAction] = useFormState(addToCart, null);
+  return (
+    <form action={formAction}>
+      <h2>{itemTitle}</h2>
+      <input type="hidden" name="itemID" value={itemID} />
+      <button type="submit">Add to Cart</button>
+      {message}
+    </form>
+  );
+}
+```
+其中 action.js
+
+```js
+"use server";
+
+// 模拟服务端入库响应
+export async function addToCart(prevState, queryData) {
+  const itemID = queryData.get('itemID');
+  if (itemID === "1") {
+    return "Added to cart";
+  } else {
+    return "Couldn't add to cart: the item is sold out.";
+  }
+}
+```
+
+useFormState 第一个参数是action触发函数，第二个是 初始值。当触发 action 提交时，第一个参数会被调用，addToCart 接受两个参数，第一个是变化前 message 的值，第二个是 formData 对象，其返回的值会复制到 message 里，并显示在界面上。
+ 
+message 可以理解为验证表单后的返回值。
+
+上面代码执行流程：
+
+点击提交 ==> 触发 addToCart ==> 返回表单处理的结果，自动赋值给 message
+
+> 这个 hook 可以用于表单校验后的错误/信息展示，只支持在客户端使用
+
+### useFormStatus
+
+> `useFormStatus` Hook 目前仅在 canary 与 experimental 渠道中可用
+
+与 useFormState 都是 react-dom 库下的 hook，但是与前者统一收集表单校验状态不同，`useFormStatus` 是一个提供表单提交后状态信息的 Hook。
+
+其使用在表单内部：
+
+```js
+<form action={submitForm}>
+  <UsernameForm />
+</form>
+
+...
+
+export async function submitForm(query) {
+  await new Promise((res) => setTimeout(res, 1000));
+}
+```
+我们在 UsernameForm 中定义一个：
+
+```js
+const {pending, data} = useFormStatus();
+
+...
+<button type="submit" disabled={pending}>
+  {pending ? '提交中……' : '提交'}
+</button>
+{showSubmitted ? (
+  <p>提交请求用户名：{submittedUsername.current}</p>
+) : null}
+```
+
+表单的提交 action 是一个异步请求，比如 Promise，当异步请求没有结束时，pending 就会是 true，该过程中 data 便是整个表单提交的数据信息。这个 hook 相当于在提交过程中将表单数据和提交进度暴露了出来，便于前端展示对应的响应式页面。
+
+## 2. APIs
+
+### cache
+
+`cache` 允许缓存数据获取或计算的结果。他可以在**任何组件之外**调用，是缓存 hook 的通用形式。
+
+> `cache` 仅在 React 的 [Canary](https://zh-hans.react.dev/community/versioning-policy#canary-channel) 和 [experimental](https://zh-hans.react.dev/community/versioning-policy#experimental-channel) 渠道中可用
+
+- 缓存重复计算
+
+比如我们有一个很复杂的计算：
+
+```js
+import calculateUserMetrics from 'lib/user';
+
+const getUserMetrics = cache(calculateUserMetrics);
+```
+使用 cache 缓存以后，在函数里直接引用即可：
+
+```js
+function TeamReport({users}) {
+  for (let user in users) {
+    const metrics = getUserMetrics(user);
+    // ...
+  }
+  // ...
+}
+```
+
+cache 接受一个函数当做计算函数，cache 返回的值为一个单例函数，决定这个函数是否获取缓存的唯一指标就是传入的值是否一致，如果两次换入的参数（上面的例子是 user 对象）引用相同，则第二次使用缓存。
+
+- 缓存 API 数据
+
+```js
+const getTemperature = cache(async (city) => {
+	return await fetchTemperature(city);
+});
+
+// 使用
+async function AnimatedWeatherCard({city}) {
+	const temperature = await getTemperature(city);
+	// ...
+}
+```
+
+类似地，他可以接受异步函数作为计算函数传入，传入的 city 为相同的值时，直接取缓存。
+
+- 预加载数据
+
+可以用 cache 手动配置预加载，在页面初始化时预先获取数据：
+
+```js
+const getUser = cache(async (id) => {
+  return await db.user.query(id);
+})
+...
+function Home({id}) {
+  // ✅ 正确示例：开始获取用户数据。
+  getUser(id);
+  // ……一些计算工作
+  return (
+    <>
+      <Profile id={id} />
+    </>
+  );
+}
+```
+这样，在改登录用户的任意页面，都可以我延时获取用户信息：
+
+```js
+const user = await getUser(id);
+```
+
+### experimental_taintObjectReference
+
+这个 API 还不稳定，还在开发中，用于阻止特定用户数据对象实例被传递给客户端组件，例如 `user` 对象。
+
+```js
+import {experimental_taintObjectReference} from 'react';
+
+export async function getUser(id) {
+  const user = await db`SELECT * FROM users WHERE id = ${id}`;
+  experimental_taintObjectReference(
+    'Do not pass the entire user object to the client. ' +
+      'Instead, pick off the specific properties you need for this use case.',
+    user,
+  );
+  return user;
+}
+```
+他的字面意思是污染对象引用，就是说将 user 劫持了，不给你客户端用了。目前落地实现还不明确，期待正式版本。
+
+### experimental_taintUniqueValue
+
+这个 API 还不稳定，还在开发中，用于防止将唯一值传递给客户端组件，例如密码、密钥或令牌。
+
+```js
+import {experimental_taintUniqueValue} from 'react';
+
+export async function getUser(id) {
+  const user = await db`SELECT * FROM users WHERE id = ${id}`;
+  experimental_taintUniqueValue(
+    'Do not pass a user session token to the client.',
+    user,
+    user.session.token
+  );
+  return user;
+}
+```
+
+官方只给了这么个例子，具体使用细节还有待考证。
+
+## 3. 指令
+
+指令这个概念在 react 中算是一个稀奇事，vue 中有 v-if，ng 中天然内置 Directive，react 中这也开始引入指令的概念了。
+
+### use client
+
+用于服务端渲染代码里。React 服务端组件默认是走 SSR 的，使用这个指令指定当前文件是属于客户端的。
+
+可以这样使用：
+
+```js
+'use client';
+
+import { useState } from 'react';
+import inspirations from './inspirations'; // 字库，这里可忽略
+import FancyText from './FancyText';  // 展示文字的组件
+
+export default function InspirationGenerator({children}) {
+  const [index, setIndex] = useState(0);
+  const quote = inspirations[index];
+  const next = () => setIndex((index + 1) % inspirations.length);
+
+  return (
+    <>
+      <p>Your inspirational quote is:</p>
+      <FancyText text={quote} />
+      <button onClick={next}>Inspire me again</button>
+      {children}
+    </>
+  );
+}
+```
+上面的组件是一个封装的文字生成器组件，我们在入口文件中引入：
+
+```js
+import FancyText from './FancyText';
+import InspirationGenerator from './InspirationGenerator';
+import Copyright from './Copyright';
+
+export default function App() {
+  return (
+    <>
+      <FancyText title text="Get Inspired App" />
+      <InspirationGenerator>
+        <Copyright year={2004} />
+      </InspirationGenerator>
+    </>
+  );
+}
+```
+这就做了隔离了，总的代码都是服务端直出的，但是 InspirationGenerator 标记了使用在客户端。我们借用官网的调用树说明现在的引用关系：
+
+
+
+![image.png](/images/2023-11-9/2023-11-9-2.png)
+
+InspirationGenerator 标记了为客户端渲染，则其作为其实节点的所有叶子节点都会采用客户端渲染了。
+
+我们再来看一下渲染关系：
+
+
+![image.png](/images/2023-11-9/2023-11-9-3.png)
+
+可以看到，Copyright 虽然是 InspirationGenerator 组件内部的 children，但是从引用关系来看，没有被 'use client' 标记，所以就走服务端渲染。
+
+### use server
+
+用于服务端渲染代码里。React 服务端组件默认是走 SSR 的，使用这个指令指定当前文件是属于服务端的。
+
+这就类似于 next.js 里边的 getServerSideProps，我们看一下示例代码：
+
+```js
+// App.js
+
+async function requestUsername(formData) {
+  'use server';
+  const username = formData.get('username');
+  // ...
+}
+
+export default App() {
+  <form action={requestUsername}>
+    <input type="text" name="username" />
+    <button type="submit">Request</button>
+  </form>
+}
+```
+
+在服务端渲染时，我们人为标记 requestUsername 函数是属于服务端的，这样在项目代码打包为 bundle 时就会直接预先调用 requestUsername，相当于默认提交了一次表单。
+
+而且，标记为服务端的函数可以设置为异步：
+
+```js
+// actions.js
+'use server';
+
+let likeCount = 0;
+export default async incrementLike() {
+  likeCount++;
+  return likeCount;
+}
+```
+
+这样在客户端代码中就可以异步接收了：
+
+
+```js
+startTransition(async () => {
+  const currentCount = await incrementLike();
+});
+```
+
+> 关于 use client 和 use server，官方的使用案例较少，也没有另外的参考。如果后期这个 API 较为成熟后，我会补充使用案例
+-----
