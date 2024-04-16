@@ -10,61 +10,63 @@ import { EnvelopeIcon } from '@/components/icons/EnvelopeIcon'
 import { UserIcon } from '@/components/icons/UserIcon'
 import { UsersIcon } from '@/components/icons/UsersIcon'
 
-const resources = [
-  {
-    href: '/contacts',
-    name: 'Contacts',
-    description:
-      'Learn about the contact model and how to create, retrieve, update, delete, and list contacts.',
-    icon: UserIcon,
-    pattern: {
-      y: 16,
-      squares: [
-        [0, 1],
-        [1, 3],
-      ],
-    },
-  },
-  {
-    href: '/conversations',
-    name: 'Conversations',
-    description:
-      'Learn about the conversation model and how to create, retrieve, update, delete, and list conversations.',
-    icon: ChatBubbleIcon,
-    pattern: {
-      y: -6,
-      squares: [
-        [-1, 2],
-        [1, 3],
-      ],
-    },
-  },
-  {
-    href: '/messages',
-    name: 'Messages',
-    description:
-      'Learn about the message model and how to create, retrieve, update, delete, and list messages.',
-    icon: EnvelopeIcon,
-    pattern: {
-      y: 32,
-      squares: [
-        [0, 2],
-        [1, 4],
-      ],
-    },
-  },
-  {
-    href: '/groups',
-    name: 'Groups',
-    description:
-      'Learn about the group model and how to create, retrieve, update, delete, and list groups.',
-    icon: UsersIcon,
-    pattern: {
-      y: 22,
-      squares: [[0, 1]],
-    },
-  },
-]
+import { BookIcon } from '@/components/icons/BookIcon'
+
+// const resources = [
+//   {
+//     href: '/contacts',
+//     name: 'Contacts',
+//     description:
+//       'Learn about the contact model and how to create, retrieve, update, delete, and list contacts.',
+//     icon: UserIcon,
+//     pattern: {
+//       y: 16,
+//       squares: [
+//         [0, 1],
+//         [1, 3],
+//       ],
+//     },
+//   },
+//   {
+//     href: '/conversations',
+//     name: 'Conversations',
+//     description:
+//       'Learn about the conversation model and how to create, retrieve, update, delete, and list conversations.',
+//     icon: ChatBubbleIcon,
+//     pattern: {
+//       y: -6,
+//       squares: [
+//         [-1, 2],
+//         [1, 3],
+//       ],
+//     },
+//   },
+//   {
+//     href: '/messages',
+//     name: 'Messages',
+//     description:
+//       'Learn about the message model and how to create, retrieve, update, delete, and list messages.',
+//     icon: EnvelopeIcon,
+//     pattern: {
+//       y: 32,
+//       squares: [
+//         [0, 2],
+//         [1, 4],
+//       ],
+//     },
+//   },
+//   {
+//     href: '/groups',
+//     name: 'Groups',
+//     description:
+//       'Learn about the group model and how to create, retrieve, update, delete, and list groups.',
+//     icon: UsersIcon,
+//     pattern: {
+//       y: 22,
+//       squares: [[0, 1]],
+//     },
+//   },
+// ]
 
 function ResourceIcon({ icon: Icon }) {
   return (
@@ -125,10 +127,10 @@ function Resource({ resource }) {
       onMouseMove={onMouseMove}
       className="group relative flex rounded-2xl bg-zinc-50 transition-shadow hover:shadow-md hover:shadow-zinc-900/5 dark:bg-white/2.5 dark:hover:shadow-black/5"
     >
-      <ResourcePattern {...resource.pattern} mouseX={mouseX} mouseY={mouseY} />
+      <ResourcePattern y={12} squares={[ [-1, 2], [1, 3] ]} mouseX={mouseX} mouseY={mouseY} />
       <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-zinc-900/7.5 group-hover:ring-zinc-900/10 dark:ring-white/10 dark:group-hover:ring-white/20" />
-      <div className="relative rounded-2xl px-4 pb-4 pt-16">
-        <ResourceIcon icon={resource.icon} />
+      <div className="relative rounded-2xl px-4 pb-4 pt-8">
+        <ResourceIcon icon={resource.icon || BookIcon} />
         <h3 className="mt-4 text-sm font-semibold leading-7 text-zinc-900 dark:text-white">
           <Link href={resource.href}>
             <span className="absolute inset-0 rounded-2xl" />
@@ -143,7 +145,7 @@ function Resource({ resource }) {
   )
 }
 
-export function Resources() {
+export function Resources({ resources = [] }) {
   return (
     <div className="my-16 xl:max-w-none">
       <Heading level={2} id="resources">

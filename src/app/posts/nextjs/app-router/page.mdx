@@ -1,0 +1,641 @@
+# Nextjs: App Router 的官网解读
+---
+
+随着 Nextjs 13+ 的推出，官方推出了一种很新的路由模式，叫 [App Router](https://nextjs.org/docs/app) 的，今天来看看这玩意怎么使用吧。
+
+他不同于之前的 pages 路由机制，而是以 app 文件夹为根目录，以 page.tsx（jsx） 为入口，以 layout.tsx (jsx) 为布局组件，参数获取不一样了，同时也引入了不少新的API。
+
+P.S. 新东西层出不穷，真的学不动了啊...
+
+![不敢吭声.jpeg](/images/2024-1-19/2024-1-19-1.png)
+
+> Node >= v18.17
+
+> 以后官方的更新方向全在 next 和 turbopack 了，所以传统的 create-react-app 和 react-router 渐渐被抛弃，如果将来 react-router 官方也不更新了，不知道 vite 将来要怎么支持 react 的创建？
+
+----
+
+## 0. 创建项目
+
+执行指令：
+
+```shell
+npx create-next-app nextjs-app-router-test
+```
+
+最新的 CLI 会有很多提示选项，我们是 App router 的讲解，其他无关的选项关掉即可：
+
+```
+✔ Would you like to use TypeScript? … [No] / Yes  // 传统 js
+✔ Would you like to use ESLint? … [No] / Yes
+✔ Would you like to use Tailwind CSS? … [No] / Yes  // 不使用 css 框架，就会生成 css module 文件，比如 page.module.css
+✔ Would you like to use `src/` directory? … [No] / Yes // 扁平化管理
+✔ Would you like to use App Router? (recommended) … No / [Yes] // 开启 App Router
+✔ Would you like to customize the default import alias (@/*)? … No / [Yes]
+✔ What import alias would you like configured? … [@]/*
+```
+
+生成后，工程目录主要文件如下：
+
+```shell
+./app
+├── favicon.ico
+├── globals.css
+├── layout.js
+├── page.js
+└── page.module.css
+./public
+├── next.svg
+└── vercel.svg
+next.config.js 
+package.json
+```
+
+我们安装依赖后启动项目：
+
+![image.png](/images/2024-1-19/2024-1-19-2.png)
+
+## 1. 路由
+
+### 路由结构
+
+我们修改一下 page.js:
+
+```js
+import styles from './page.module.css'
+
+export default function Home() {
+  return (
+    <main className={styles.main}>
+      Home
+    </main>
+  )
+}
+```
+
+![image.png](/images/2024-1-19/2024-1-19-3.png)
+
+而 layout.js 组件：
+
+```js
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>{children}</body>
+    </html>
+  )
+}
+```
+
+可以看到他是项目的主体结构，他传入的 children 是 page.js 中的内容。
+
+以上便是 App Router 的主体结构了 （app 目录 + page.js + layout.js）。可以对比 pages 路由（pages 目录 + _app.js + _document.js）.
+
+此外还有一个 public 目录，它里边的文件是可以被使用 `/` 直接引用的。
+
+app 文件夹中可以创建子文件夹用于区分子路由，在app顶层的文件就表示跟路由文件。每个项目文件夹单元可以包含的文件如下：
+
+
+|       文件名        |          可选的后缀           |           功能                   |
+| ------------------- | ------------------- | ---------------------------- |
+| [`layout`](https://nextjs.org/docs/app/api-reference/file-conventions/layout)                     | `.js` `.jsx` `.tsx` | 布局的顶层组件                       |
+| [`page`](https://nextjs.org/docs/app/api-reference/file-conventions/page)                         | `.js` `.jsx` `.tsx` | 页面主体                         |
+| [`loading`](https://nextjs.org/docs/app/api-reference/file-conventions/loading)                   | `.js` `.jsx` `.tsx` | 页面加载时的 loading                   |
+| [`not-found`](https://nextjs.org/docs/app/api-reference/file-conventions/not-found)               | `.js` `.jsx` `.tsx` | 页面 404 时显示，仅在顶层生效            |
+| [`error`](https://nextjs.org/docs/app/api-reference/file-conventions/error)                       | `.js` `.jsx` `.tsx` | 页面错误时显示，仅在顶层生效              |
+| [`global-error`](https://nextjs.org/docs/app/api-reference/file-conventions/error#global-errorjs) | `.js` `.jsx` `.tsx` | 全局错误时显示，仅在顶层生效             |
+| [`route`](https://nextjs.org/docs/app/api-reference/file-conventions/route)                       | `.js` `.ts`         | API 请求定制文件                 |
+| [`template`](https://nextjs.org/docs/app/api-reference/file-conventions/template)                 | `.js` `.jsx` `.tsx` | 重渲染时定制 layout           |
+| [`default`](https://nextjs.org/docs/app/api-reference/file-conventions/default)                   | `.js` `.jsx` `.tsx` | 平行路由回落页面（官方文档还在补充中。。。）|
+
+> 如果某一级目录下没有 layout 和 page，则不会被认为是一个正确的路由结构
+
+从 app 文件夹开始往下，遵从目录路由结构：
+
+
+![image.png](/images/2024-1-19/2024-1-19-4.png)
+
+比如我在 app 下新建 dashboard 目录，在下边写上自己的 layout.js 和 page.js 文件们就可以这样访问：`http://localhost:3000/dashboard` （`<Link href="/dashboard">Dashboard</Link>`）。此时目录结构可能是这个样子的：
+
+
+![image.png](/images/2024-1-19/2024-1-19-5.png)
+
+我们也可以使用 template.js 来作为中间层，它介于 layout.js 和其孩子组件之间：
+
+```js
+// dashboard/template.js
+import React from 'react'
+
+export default function template({ children }) {
+  return (
+    <div>
+      接收来自 page.js 的数据：
+      {children}
+    </div>
+  )
+}
+```
+
+然后页面显示：
+
+![image.png](/images/2024-1-19/2024-1-19-6.png)
+
+template 可用于页面布局，拆分页面功能等。
+
+### 路由组
+
+有时候我们想用一个大的文件夹管理分组文件，但是又不想 nextsjs 将其识别为路由，那么可以将文件夹用小括号包裹：
+
+
+![image.png](/images/2024-1-19/2024-1-19-7.png)
+
+此时就可以这样访问了：`http://localhost:3000/about`。
+
+> 需注意，有多个路由组时，内部的二级目录，比如 about 不能重名，不然会识别错误。
+
+当然了，各个路由组顶层也可以有自己的 layout.js ，或者各个二级路由（比如 about 文件夹）下分别放置自己的 layout.js 也可以。
+
+### 动态路由
+
+> 仅在服务端组件使用
+
+可以将文件夹名称用中括号括起来表示动态路由：
+
+```shell
+./app/posts
+└── [id]
+    └── page.js
+```
+
+其中 page.js:
+
+```js
+export default function Post({ params }) {
+  return (
+    <div>Post: {params.id}</div>
+  )
+}
+```
+
+此时可通过路由 `http://localhost:3000/posts/1` 来访问:
+
+
+![image.png](/images/2024-1-19/2024-1-19-8.png)
+
+当然了，参数不是只能传递一级参数，我们如果这样定义文件夹：`[...ids]`：
+
+```shell
+./app/posts
+└── [...ids]
+    └── page.js
+```
+
+此时访问：`http://localhost:3000/posts/12/56`，此时在服务端可打印拿到的参数：
+
+```js
+{ params: { ids: [ '12', '56' ] }, searchParams: {} }
+```
+
+上面的写法还有一种变体：`[[...ids]]`，使用双括号和单括号的功能是一样的，识别的基本没有差别，唯一的不同是，使用双括号可以识别不带参数的路径：`http://localhost:3000/posts`，而单括号的配置就 404 了。
+
+### 平行路由
+
+平行路由的文件夹以 `@` 开头，其默认也不会生成在路由中，不能直接访问。
+
+
+比如我们有两个文件夹：`@dashboard` 和 `@login` ，一个表示登录后的欢迎界面，一个表示没有权限时的登录页面：
+
+
+![image.png](/images/2024-1-19/2024-1-19-9.png)
+
+
+我们重写一下 `app/layout.js`:
+
+```js
+import { getUser } from '@/lib/auth'
+ 
+export default function Layout({ dashboard, login }) {
+  const isLoggedIn = getUser()
+  return isLoggedIn ? dashboard : login
+}
+```
+
+getUser 是获取当前用户的，这里忽略其实现。这样，在根路由下，就可以通过条件语句动态挂载和删除路由组件，当然了，他们也可以同时被渲染在同一个页面上。
+
+### 路由拦截
+
+路由拦截一般针对弹出层，在 nextjs 中，弹出层 modal 也有自己的路由，在弹出层路由下原地刷新页面，不应该再出现模态框，而是直接展示原来弹窗里边的详情，这样的一个url展示两种形态的路由，叫做拦截路由。
+
+路由拦截，是在路由目录命名前面加上小括号表示：
+
+-   `(.)`匹配**同一级别的段**
+-   `(..)`匹配**上一级的段**
+-   `(..)(..)`匹配**上面两级的段**
+-   `(...)`匹配**根** `app`目录中的段
+
+我们举例来说明。
+
+
+![image.png](/images/2024-1-19/2024-1-19-10.png)
+
+上面的图片中，photo目录下放置的是路由 `photo/id` 要展示的图片详情内容，`@modal` 目录用于将 photo 目录拦截并包裹在一个模态框中。这里 `(..)`会从 `@modal` 上一级目录导入同级目录中去找 `photo` 目录来匹配。
+
+此时，当通过 ```<Link key={id} href={`/photos/${id}`}>``` 来访问目录时，就会出现主页面上弹出的模态框。
+
+在列表页点击 link 访问：
+
+
+![image.png](/images/2024-1-19/2024-1-19-11.png)
+
+直接通过 url 访问：
+
+
+![image.png](/images/2024-1-19/2024-1-19-12.png)
+
+demo 地址：[路由拦截](https://github.com/vercel-labs/nextgram/tree/main)
+
+### 路由处理程序 （API路由）
+
+每一套路由，包括根路由，都是可以配有一个 `route.js` (ts) 文件用于自定义处理数据和路由返回内容的。我们看一下如下的路由目录：
+
+```shell
+./posts
+└── [...ids]
+    ├── page.js
+    └── route.js
+```
+
+在 route.js 中我们写入：
+
+```js
+export async function GET(
+  request,
+  params
+) {
+  const ids = params.params.ids;
+  console.log(ids)
+
+  return new Response('Hello, Next.js!', {
+    status: 200,
+    headers: { 'Set-Cookie': `token=${ids}` },
+  })
+}
+```
+
+可以看到，他接受了路由参数 ids，并且根据自定义的逻辑返回了页面响应。页面访问 `http://localhost:3000/posts/111/122` 查看效果：
+
+
+![image.png](/images/2024-1-19/2024-1-19-13.png)
+
+自定义的 cookie 设置进去了。
+
+### 路由中间件
+
+在项目目录中放置文件 `middleware.ts`（或 .js）来定义中间件。放置目录与`pages`或`app`同级，或在内部`src` 顶层（如果有 src），nextjs 会自动识别中间件文件，并在内容缓存和路由切换之前执行该文件。
+
+举一个我在项目中配置 i18n 的例子：
+
+```js
+// src/middleware.js
+export function middleware(req) {
+  let lng
+  if (req.cookies.has(cookieName)) {
+    lng = acceptLanguage.get(req.cookies.get(cookieName).value)
+    console.log('Cookie language:', lng)
+  }
+  if (!lng) {
+    lng = acceptLanguage.get(req.headers.get('Accept-Language'))
+    console.log('Accept-Language:', lng)
+  }
+  if (!lng || !languages.includes(lng)) lng = fallbackLng
+
+  // Redirect if lng in path is not supported
+  if (
+    !languages.some(loc => req.nextUrl.pathname.startsWith(`/${loc}`)) &&
+    !req.nextUrl.pathname.startsWith('/_next')
+  ) {
+    return NextResponse.redirect(new URL(`/${lng}${req.nextUrl.pathname}`, req.url))
+  }
+
+  return NextResponse.next()
+}
+```
+
+上面的代码，拦截请求 req，判断请求的 cookie 里有没有语言的配置，如果没有就使用 Accept-Language 获取浏览器推荐的语言，如果还没有就使用回落兜底方案；最后使用 `NextResponse.redirect` 重定向到对应的语言路径。
+
+## 2. 数据获取方式
+
+Next.js 也可以请求第三方的服务来获取数据。
+
+### 服务端
+
+服务端组件中，官方推荐使用 fetch：
+
+```js
+// page.js
+async function getData() {
+  const res = await fetch('https://api.example.com/...')
+  // The return value is *not* serialized
+  // You can return Date, Map, Set, etc.
+ 
+  if (!res.ok) {
+    // This will activate the closest `error.js` Error Boundary
+    throw new Error('Failed to fetch data')
+  }
+ 
+  return res.json()
+}
+ 
+export default async function Page() {
+  const data = await getData()
+  console.log(data)
+  return <main></main>
+}
+```
+此外，fetch 可以使用 `{ cache: 'force-cache' }` 来缓存数据。
+
+### 客户端
+
+要声明一个组件是客户端组件，需要这样写:
+
+```js
+'use client'
+ 
+export default function ClientComponent({ updateItem }) {
+  return <form action={updateItem}>{/* ... */}</form>
+}
+```
+
+客户端组件就跟平常的 react 开发一样，可以使用 React 的各种状态 Hook 和 第三方工具（比如 axios）来处理数据。
+
+客户端我们还可以请求前面的 API 路由来获取数据，API 路由中可以是服务端调用第三方接口请求的数据。
+
+## 3. 服务端渲染与客户端渲染
+
+### 服务端策略
+
+- 默认为静态渲染
+
+路由和服务端数据在 build 时同步获取，结果会存在服务端，支持缓存 CDN 中，此时就是标准的后端直出的静态页面。
+
+- 动态渲染
+
+路由在每次访问时动态获取页面数据，适用于一些需要展示实时数据的场景（比如 cookies、url params等）。
+
+如果页面中有动态函数或者未被缓存的数据，则自动转换为动态页面渲染：
+
+Dynamic Functions | Data       | Route                |
+| ----------------- | ---------- | -------------------- |
+| No                | Cached     | Statically Rendered  |
+| Yes               | Cached     | Dynamically Rendered |
+| No                | Not Cached | Dynamically Rendered |
+| Yes               | Not Cached | Dynamically Rendered|
+
+关于动态函数，指的是只有在请求后才知道返回结果的函数，动态函数必须是内置的，因为 fetch 会被缓存：
+
+```js
+import { cookies } from 'next/headers'
+import { headers } from 'next/headers'
+```
+
+- 流式加载
+
+渐进式的 UI 渲染策略，可以通过 loading.js 文件，或者使用 `React.Suspense` 来开启。默认情况下，流式加载内置于 Next.js App Router 中，助于提高初始页面加载性能，比如加载哪些 依赖于较慢数据获取（会阻止渲染整个路由）的 UI（产品页面上的评论等）:
+
+```js
+// page.js
+import { Suspense } from 'react'
+import { PostFeed, Weather } from './Components'
+ 
+export default function Posts() {
+  return (
+    <section>
+      <Suspense fallback={<p>Loading feed...</p>}>
+        <PostFeed />
+      </Suspense>
+      <Suspense fallback={<p>Loading weather...</p>}>
+        <Weather />
+      </Suspense>
+    </section>
+  )
+}
+```
+
+### 客户端策略
+
+客户端组件在 build 时不参与获取数据和预渲染，他在客户浏览器运行时才开始执行并渲染数据。客户端组件可以使用状态、效果和事件侦听器，往往用于交互相对复杂的场景。
+
+在需要客户端渲染的代码片段顶层写上：`"use client"` 便可以声明客户端组件：
+
+```js
+'use client'
+ 
+import { useState } from 'react'
+ 
+export default function Counter() {
+  const [count, setCount] = useState(0)
+ 
+  return (
+    <div>
+      <p>You clicked {count} times</p>
+      <button onClick={() => setCount(count + 1)}>Click me</button>
+    </div>
+  )
+}
+```
+
+Next.js 渲染的策略是：在用户客户端拉取服务端组件代码和客户端组件代码，先渲染出无交互的页面信息，完成初始页面加载，之后使用客户端水合技术，更新 DOM 树，植入交互信息和事件监听。
+
+
+## 4. 关于缓存
+
+### 请求缓存
+
+为了不用每次都调用接口获取重复的数据，Next.js 扩展了 fetch API 去自动缓存请求数据，缓存命中策略是：`相同的 url、协议和请求体`。
+
+
+![image.png](/images/2024-1-19/2024-1-19-14.png)
+
+在需要数据的地方，可以放心的直接使用 fetch 即可，Next.js 会进行兜底的。缓存策略工作流程如下：
+
+1. 在一个 route 加载时，第一次请求，不进行缓存
+2. 第二次请求，如果满足我们上面说的条件，则命中缓存，这次请求返回数据就从缓存中取
+3. 一旦 route 重渲染了，缓存则会清除，那么调用就会发起 API 请求了。
+
+如果不想缓存这个请求，可以这样写：
+
+```js
+const { signal } = new AbortController()
+fetch(url, { signal })
+```
+
+### 数据的缓存
+
+**数据缓存和请求记忆之间的差异**
+
+官方解释：
+
+数据缓存在传入请求和部署中是持久的，而请求缓存的生命周期仅持续在请求过程中。
+
+通过请求缓存，可以避免重复请求缓存服务器、CDN等的数量。而通过数据缓存，我们减少了对原始数据源发出的请求数量。
+
+僵尸栽花，具体的区别我也理解不深，为啥要做两层~~ 😓
+
+我们看图：
+
+
+![image.png](/images/2024-1-19/2024-1-19-15.png)
+
+请求缓存是在数据缓存前边的，请求缓存没有命中，才会去找数据缓存，还没有命中才会去请求原始数据源。
+
+我们可以这样请求：
+
+```js
+fetch('https://...', { next: { revalidate: 3600 } })
+```
+
+表示 3600 秒之内，数据是缓存有效的。3600 秒之后会自动重新验证，若没有变化则还是用缓存。
+
+我们还可以禁用缓存:
+
+```js
+fetch(`https://...`, { cache: 'no-store' })
+```
+
+### 小结
+
+我们来看一下全路由缓存的流程图：
+
+
+![image.png](/images/2024-1-19/2024-1-19-16.png)
+
+1. 运行时，客户端的路由缓存，比如 Suspense.
+2. 编译时，路由已经确定，请求的路由如果命中缓存，则直接返回。
+3. 编译时，API 请求已经确定，请求的 API 如果命中缓存，则直接返回结果，不必再次发起对数据缓存的请求。
+4. 编译时，非动态 API 返回的结果已经确定，如果请求相同的数据，且缓存不过期，则使用缓存结果，不向元数据请求。
+
+## 5. 关于样式 
+
+可以使用 css 模块：
+
+```js
+import styles from './styles.module.css'
+ 
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return <section className={styles.dashboard}>{children}</section>
+}
+```
+
+也可以使用 CSS-in-JS，比如 emotion 等，当然一些预处理器，比如 sass、less 也可以使用，不过要在配置里增加配置项：
+
+```js
+const path = require('path')
+ 
+module.exports = {
+  sassOptions: {
+    includePaths: [path.join(__dirname, 'styles')],
+  },
+}
+```
+
+当然，对于企业级大型应用，还是推荐使用 Tailwindcss，下一期讲实战会讲解。
+
+
+## 6. SEO 配置
+
+
+### meta 
+
+在各个 page.js 文件中，都可以配置当前页面对应的 meta 信息：
+
+```js
+import { Metadata } from 'next'
+
+// 使用 静态 meta
+export const metadata: Metadata = {
+  title: '...',
+}
+ 
+// 使用 动态 meta
+export async function generateMetadata({ params }) {
+  return {
+    title: '...',
+  }
+}
+
+export default function Page() { return '...'}
+```
+当然你也可以直接在 layout 中写入。
+
+### sitemap
+
+推荐安装 `next-sitemap` 库，使用时只需要在 package.json 中写入指令即可：`"postbuild": "next-sitemap"`，这样在打包后就会在 public 文件夹生成 robots.txt 和 sitemap.xml 文件。当然了，如果你想自定义配置，可在根目录创建一个配置文件 `next-sitemap.config`:
+
+```js
+/** @type {import('next-sitemap').IConfig} */
+module.exports = {
+  siteUrl: process.env.SITE_URL || "https://xxx.com",
+  generateIndexSitemap: false,
+  generateRobotsTxt: true,
+  robotsTxtOptions: {
+    policies: [{ userAgent: '*', allow: '/' }],
+  },
+};
+```
+
+## 7. 附录：Next.js 13+ 新功能一览
+
+### React 服务器组件 （RSC）
+
+RSCs 允许在客户端和服务器上采用更精细的渲染方式。React 允许开发者选择组件是在服务器上还是在客户端渲染，而不是在用户请求时被迫决定在客户端还是服务器上渲染整个页面。这可以让你在搜索引擎结果页面中获得巨大优势。
+
+### Streaming UI
+
+流式 UI（Streaming UI）代码块是一个新兴的设计模式，称为`岛屿架构（the island architecture）`，旨在首次加载时尽量向客户端发送最少的代码。
+
+其实现目标是：向客户端发送一个无需 JavaScript 的完全渲染的页面，然后再发送剩余的内容。
+
+当 Next.js 在服务器端渲染页面时，通常会将页面的所有 JavaScript 捆绑并与之一起发送。而流式 UI 代码块的引入消除了这种需要，允许向客户端发送一个非常小的静态页面，显著改善了诸如首次内容呈现时间和整体页面速度等指标。
+
+流式 UI 的步骤大致如下：
+
+-   用户发起初始请求
+-   渲染并发送基本的 HTML 页面给客户端
+-   服务器准备 JavaScript 捆绑文件
+-   在客户端浏览器中显示需要 JavaScript 的页面部分
+-   仅将该组件所需的 JavaScript 捆绑文件发送给客户端
+
+### App Router
+
+app 目录下的所有东西都是预先配置好的，以允许 RSCs 和流式 UI 的出现。你只需要创建一个[loading.js](https://beta.nextjs.org/docs/routing/loading-ui)组件，它将完全包住页面组件和 suspense 边界内的任何子节点。
+
+### 升级的 Next Image 组件
+
+利用了浏览器原生支持的懒加载策略，添加了一些对 SEO 有很大帮助的改进：
+
+-   默认需要 alt 标签。
+-   更好的验证，以确定涉及无效属性错误。
+-   由于有了一个更像 HTML 的界面，更容易进行样式设计。
+
+### Font 组件
+
+网页性能中，CLS 是一个重要的指标（CLS 是 Cumulative Layout Shift 的缩写，衡量在网页的整个生命周期内发生的所有意外布局偏移的得分总和。），根据你所使用的框架（比如 Gatsby），让字体有效地预加载可能是很棘手的。一段时间以来，向谷歌等字体库发出外部请求是一个避免不了的行为，在许多 SPA 应用程序中造成了一个难以管理的瓶颈（页面文字会闪烁一下）。
+
+Next Font Component 旨在解决这个问题，它在构建时获取所有的外部字体，并从你自己的域中自我托管它们。字体也被自动优化，并且通过自动利用 CSS **size-adjust（大小调整）**  属性实现了零累积的布局转移。
+
+比如这样使用 google 字体：
+
+```js
+import { Roboto } from 'next/font/google'
+
+const roboto = Roboto({ weight: '400', subsets: ['latin'], display: 'swap',})
+
+...
+<html lang="en" className={roboto.className}> <body>{children}</body> </html>
+```
+
+关于新功能 App router 就讲这么多啦，欢迎大家一起讨论交流，一起学习。

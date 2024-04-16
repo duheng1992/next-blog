@@ -4,15 +4,21 @@ export const metadata = {
     '小肚教你快速学习Next.js',
 }
 
-
-import { Guides } from '@/components/Guides'
+import { Resources } from '@/components/Resources'
 
 ## 导航 {{ tag: 'next,js', label: 'React 官网开发', id: 1 }}
 
-<Guides guides={[
+<Resources resources={[
   {
     href: '/posts/nextjs/react-ssr',
     name: '讲讲 React 服务端渲染最佳实践方案【新版React + Nextjs 官方文档解读】',
     description: '快速上手 react 的服务端渲染',
+    pattern: []
+  },
+  {
+    href: '/posts/nextjs/app-router',
+    name: 'App Router 的官网解读',
+    description: '快速上手 nextjs App router',
+    pattern: []
   },
 ]} />
