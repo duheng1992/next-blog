@@ -11,7 +11,6 @@ import { UserIcon } from '@/components/icons/UserIcon'
 import { UsersIcon } from '@/components/icons/UsersIcon'
 
 import { BookIcon } from '@/components/icons/BookIcon'
-
 // const resources = [
 //   {
 //     href: '/contacts',
@@ -127,20 +126,20 @@ function Resource({ resource }) {
       onMouseMove={onMouseMove}
       className="group relative flex rounded-2xl bg-zinc-50 transition-shadow hover:shadow-md hover:shadow-zinc-900/5 dark:bg-white/2.5 dark:hover:shadow-black/5"
     >
-      <ResourcePattern y={12} squares={[ [-1, 2], [1, 3] ]} mouseX={mouseX} mouseY={mouseY} />
-      <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-zinc-900/7.5 group-hover:ring-zinc-900/10 dark:ring-white/10 dark:group-hover:ring-white/20" />
-      <div className="relative rounded-2xl px-4 pb-4 pt-8">
-        <ResourceIcon icon={resource.icon || BookIcon} />
-        <h3 className="mt-4 text-sm font-semibold leading-7 text-zinc-900 dark:text-white">
-          <Link href={resource.href}>
+      <Link href={resource.href}>
+        <ResourcePattern y={12} squares={[[-1, 2], [1, 3]]} mouseX={mouseX} mouseY={mouseY} />
+        <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-zinc-900/7.5 group-hover:ring-zinc-900/10 dark:ring-white/10 dark:group-hover:ring-white/20" />
+        <div className="relative rounded-2xl px-4 pb-4 pt-8">
+          <ResourceIcon icon={resource.icon || BookIcon} />
+          <h3 className="mt-4 text-sm font-semibold leading-7 text-zinc-900 dark:text-white">
             <span className="absolute inset-0 rounded-2xl" />
             {resource.name}
-          </Link>
-        </h3>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          {resource.description}
-        </p>
-      </div>
+          </h3>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            {resource.description}
+          </p>
+        </div>
+      </Link>
     </div>
   )
 }
