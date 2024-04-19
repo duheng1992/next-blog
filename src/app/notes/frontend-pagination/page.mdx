@@ -1,0 +1,126 @@
+# 前端分页+搜索常用写法记录
+---
+
+## 1. 定义基础数据
+
+```js
+const defaultFilters = {
+  Page: 0,
+  NumberPerPage: 10,
+};
+
+const [loading, setLoading] = useState(false);
+const [list, setList] = useState([]); // 存放原始数据
+const [filteredList, setFilteredList] = useState([]);  // 存放过滤后的数据
+const [totalCount, setTotalCount] = useState(0); // 存放当前显示的总条数
+const [filter, setFilters] = useState(defaultFilters); // 过滤器：默认第一页，10 条显示
+```
+
+## 2. 获取原始数据
+
+```js
+useEffect(() => {
+  getList(defaultFilters);
+}, []);
+
+const getList = data => {
+  setLoading(true);
+  // Api.PostData 为你设置的ajax请求
+  Api.PostData(data).then(res => {
+    const currentList = res.Data || [];
+    // 设置原始数据
+    setList(currentList);
+    // 执行初始化过滤
+    searchList(filter, currentList);
+    setLoading(false);
+  }).catch(e => {
+    setLoading(false);
+    setErrorMessage(e.message || "获取数据失败")
+  });
+}
+```
+
+## 3. 搜索查询
+
+```js
+const searchList = (values, currentList = list) => {
+  if (values) {
+    // 初次加载是 currentList，之后默认是原始数据 list
+    const searchedList = (currentList || []).filter(item => {
+      // TODO: 自定义的过滤规则
+      if (values.BrevityCode && item.BrevityCode !== values.BrevityCode) {
+        return false;
+      }
+      
+      return true;
+    });
+
+    const currentFilter = {
+      ...values,
+    }
+
+    // 搜索完后，设置总条数
+    setTotalCount(searchedList.length);
+    // 设置过滤器
+    setFilters(currentFilter);
+    // 开始执行分页
+    setFilteredList(paginationList(searchedList, currentFilter));
+  }
+}
+```
+
+## 4. 分页查询
+
+```js
+const paginationList = (list, currentFilter = filter) => {
+  return list.slice(currentFilter.Page * currentFilter.NumberPerPage, currentFilter.Page * currentFilter.NumberPerPage + currentFilter.NumberPerPage);
+};
+```
+
+> 如此，便完成了初始化列表展示：获取元数据 --> 按照默认搜索条件执行一次搜索 --> 记录搜索后的总条数（自然是元数据的总数）--> 对于搜索后的数据，按照默认条件分页
+
+## 5. 执行分页
+
+<CodeGroup>
+```jsx {{ title: 'Html' }}
+<!-- 为简单起见，只使用下一页和上一页，通过页码跳转的使用大同小异 -->
+<div>共{totalCount}条</div> 
+<button disabled={filter.Page === 0} onClick={() => handlePreviousPage()}>{"<<上一页"}</Button>
+<button disabled={filteredList && filteredList.length < filter.NumberPerPage} onClick={() => handleNextPage()}>{"下一页>>"}</Button>
+```
+
+```js {{ title: 'Javascript' }}
+const handlePreviousPage = () => {
+  const currentFilter = {
+    ...filter,
+    Page: filter.Page - 1
+  } 
+  searchList(currentFilter);
+}
+
+const handleNextPage = () => {
+  const currentFilter = {
+    ...filter,
+    Page: filter.Page + 1
+  } 
+  searchList(currentFilter);
+}
+```
+</CodeGroup>
+
+> 分页查询步骤：获取分页条件 --> 按照之前记录的搜索条件执行一次搜索 --> 记录搜索后的总条数--> 对于搜索后的数据，按照分页条件分页
+
+## 6. 执行搜索
+
+为简单起见，搜索的表单这里省略，只提供搜索表单的回调事件。
+
+```js
+const onFilter = (values) => {
+  searchList({ ...values, Page: 0, NumberPerPage: filter.NumberPerPage });
+}
+```
+> 搜索查询步骤：获取搜索条件（回到第一页开始） --> 按照当前搜索条件执行一次搜索 --> 记录搜索后的总条数--> 对于搜索后的数据，按照之前记录的分页条件分页
+
+## 7. 数据流向总结
+
+`getList()` 获取元数据 --> `list` --> `searchList()` --> `paginationList()` --> `filteredList`

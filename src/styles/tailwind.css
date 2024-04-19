@@ -24,6 +24,10 @@ body {
   overscroll-behavior-x: none;
 }
 
+code {
+  font-size: larger;
+}
+
 .dropdown {  
   position: relative;  
   display: inline-block;  

@@ -42,7 +42,7 @@ function NavLink({
       href={href}
       aria-current={active ? 'page' : undefined}
       className={clsx(
-        'flex justify-between gap-2 py-1 pr-3 text-sm transition',
+        'flex justify-between gap-2 py-1 pr-3 text-base transition',
         isAnchorLink ? 'pl-7' : 'pl-4',
         active
           ? 'text-zinc-900 dark:text-white'
@@ -124,7 +124,7 @@ function NavigationGroup({ group, className }) {
     <li className={clsx('relative mt-6', className)}>
       <motion.h2
         layout="position"
-        className="text-xs font-semibold text-zinc-900 dark:text-white"
+        className="text-lg font-semibold text-zinc-900 dark:text-white"
       >
         {group.title}
       </motion.h2>
@@ -187,7 +187,7 @@ function NavigationGroup({ group, className }) {
 
 export const navigation = [
   {
-    title: 'Blogs',
+    title: '博客',
     links: [
       // { title: 'Introduction', href: '/' },
       { title: 'JavaScript 发展史', href: '/posts/js-history' },
@@ -205,8 +205,10 @@ export const navigation = [
     ],
   },
   {
-    title: '资源',
+    title: '笔记',
     links: [
+      { title: '前端分页常用写法', href: '/notes/frontend-pagination' },
+
     ],
   },
   {
